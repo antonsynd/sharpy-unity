@@ -1,2 +1,79 @@
-# sharpy-unity
-Unity plugin for Sharpy-based compilation
+# Sharpy Unity Integration
+
+Unity Editor plugin that makes `.spy` files work seamlessly inside Unity projects. Edit a `.spy` file, and the plugin automatically compiles it to C# via `sharpyc`, which Unity then compiles normally.
+
+## Requirements
+
+- Unity 2022.3 LTS or later
+- Sharpy compiler (`sharpyc`) — bundled with this package
+
+## Installation
+
+### Via Git URL (recommended)
+
+1. Open **Window > Package Manager**
+2. Click **+** > **Add package from git URL...**
+3. Enter: `https://github.com/antonsynd/sharpy-unity.git`
+
+### From Disk
+
+1. Clone this repository
+2. Open **Window > Package Manager**
+3. Click **+** > **Add package from disk...**
+4. Select the `package.json` in this repository
+
+## Usage
+
+1. Create `.spy` files anywhere under `Assets/`
+2. The plugin detects changes and runs `sharpyc` automatically
+3. Generated C# appears in `Assets/SharpyGenerated/` (excluded from git)
+4. Unity compiles the generated C# normally
+
+### Settings
+
+Open **Edit > Project Settings > Sharpy** to configure:
+
+- **Auto-compile on Save** — toggle automatic compilation
+- **Generated Output Path** — where generated C# files are written
+- **Root Namespace** — namespace wrapper for generated code
+- **Compiler Timeout** — max seconds per compilation
+- **Show #line Directives** — map Unity errors back to `.spy` source lines
+
+### Menu Items
+
+- **Assets > Sharpy > Recompile All** — force-recompile every `.spy` file
+- **Assets > Sharpy > Recompile Selected** — recompile selected `.spy` files
+- **Assets > Sharpy > Clean Generated** — delete all generated C# files
+
+## How It Works
+
+```
+.spy file saved → AssetPostprocessor detects change → sharpyc emit csharp → .cs written → Unity compiles
+```
+
+The plugin ships with:
+- `sharpyc` compiler binaries (macOS arm64/x64, Windows x64, Linux x64) — editor-only
+- `Sharpy.Core.dll` (netstandard2.1) — runtime dependency for `Sharpy.Builtins`, `Sharpy.List<T>`, etc.
+
+## Development
+
+This is a [Unity Package Manager](https://docs.unity3d.com/Manual/CustomPackages.html) package. The structure follows UPM conventions:
+
+```
+├── Editor/                  # Editor-only scripts (compiler bridge, settings, UI)
+│   └── Binaries/            # Platform-specific sharpyc binaries
+├── Runtime/                 # Runtime scripts
+├── Plugins/Sharpy.Core/     # Sharpy.Core.dll (netstandard2.1)
+├── Tests/Editor/            # Unity Test Runner tests
+├── Samples~/BasicSetup/     # Importable sample project
+├── Documentation~/          # Package documentation
+└── package.json             # UPM manifest
+```
+
+## Related
+
+- [sharpy](https://github.com/antonsynd/sharpy) — The Sharpy compiler and standard library
+
+## License
+
+MIT

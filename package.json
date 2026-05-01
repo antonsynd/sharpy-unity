@@ -1,0 +1,33 @@
+{
+  "name": "com.antonsynd.sharpy",
+  "version": "0.1.0",
+  "displayName": "Sharpy",
+  "description": "Unity integration for the Sharpy programming language. Compiles .spy files to C# automatically within the Unity Editor.",
+  "unity": "2022.3",
+  "unityRelease": "0f1",
+  "documentationUrl": "https://github.com/antonsynd/sharpy-unity#readme",
+  "changelogUrl": "https://github.com/antonsynd/sharpy-unity/blob/mainline/CHANGELOG.md",
+  "licensesUrl": "https://github.com/antonsynd/sharpy-unity/blob/mainline/LICENSE",
+  "keywords": [
+    "sharpy",
+    "transpiler",
+    "language",
+    "compiler",
+    "codegen"
+  ],
+  "author": {
+    "name": "Anton Nguyen",
+    "url": "https://github.com/antonsynd"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/antonsynd/sharpy-unity.git"
+  },
+  "samples": [
+    {
+      "displayName": "Basic Setup",
+      "description": "Minimal example with a MonoBehaviour written in Sharpy.",
+      "path": "Samples~/BasicSetup"
+    }
+  ]
+}

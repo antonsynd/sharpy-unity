@@ -1,0 +1,23 @@
+{
+  "name": "Sharpy.Unity.Editor.Tests",
+  "rootNamespace": "Sharpy.Unity.Editor.Tests",
+  "references": [
+    "Sharpy.Unity.Editor",
+    "Sharpy.Unity.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "Sharpy.Core.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
