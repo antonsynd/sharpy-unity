@@ -6,6 +6,7 @@
 x64/
 x86/
 [Bb]in/
+!build_tools/bin/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
@@ -21,6 +22,7 @@ artifacts/
 Library/
 Temp/
 [Bb]uild/
+!.claude/skills/build/
 [Bb]uilds/
 UserSettings/
 *.pidb
