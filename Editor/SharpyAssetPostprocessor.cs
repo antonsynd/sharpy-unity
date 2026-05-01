@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using UnityEditor;
 using UnityEngine;
 
@@ -6,6 +8,8 @@ namespace Sharpy.Unity.Editor
 {
     public sealed class SharpyAssetPostprocessor : AssetPostprocessor
     {
+        private static readonly Dictionary<string, string> FileHashes = new Dictionary<string, string>();
+
         private static void OnPostprocessAllAssets(
             string[] importedAssets,
             string[] deletedAssets,
@@ -45,6 +49,16 @@ namespace Sharpy.Unity.Editor
 
         private static void CompileSpyFile(string spyAssetPath)
         {
+            string fullPath = Path.GetFullPath(spyAssetPath);
+            string hash = ComputeFileHash(fullPath);
+
+            if (hash != null
+                && FileHashes.TryGetValue(spyAssetPath, out string cachedHash)
+                && cachedHash == hash)
+            {
+                return;
+            }
+
             string outputPath = SharpyGeneratedFolderManager.GetGeneratedPath(spyAssetPath);
             string outputDir = Path.GetDirectoryName(outputPath);
 
@@ -57,6 +71,11 @@ namespace Sharpy.Unity.Editor
 
             if (result.Success)
             {
+                if (hash != null)
+                {
+                    FileHashes[spyAssetPath] = hash;
+                }
+
                 AssetDatabase.ImportAsset(outputPath);
             }
             else
@@ -86,12 +105,27 @@ namespace Sharpy.Unity.Editor
 
         private static void DeleteGeneratedFile(string spyAssetPath)
         {
+            FileHashes.Remove(spyAssetPath);
+
             string generatedPath = SharpyGeneratedFolderManager.GetGeneratedPath(spyAssetPath);
 
             if (File.Exists(generatedPath))
             {
                 AssetDatabase.DeleteAsset(generatedPath);
             }
+        }
+
+        private static string ComputeFileHash(string fullPath)
+        {
+            if (!File.Exists(fullPath))
+            {
+                return null;
+            }
+
+            using var md5 = MD5.Create();
+            using var stream = File.OpenRead(fullPath);
+            byte[] hashBytes = md5.ComputeHash(stream);
+            return System.BitConverter.ToString(hashBytes);
         }
     }
 }

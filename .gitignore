@@ -46,6 +46,8 @@ Assets/SharpyGenerated/
 .vscode/
 *.swp
 *~
+!Samples~/
+!Documentation~/
 
 # OS
 .DS_Store

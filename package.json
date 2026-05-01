@@ -26,7 +26,7 @@
   "samples": [
     {
       "displayName": "Basic Setup",
-      "description": "Minimal example with a MonoBehaviour written in Sharpy.",
+      "description": "Simple Sharpy scripts demonstrating basic syntax, classes, and methods.",
       "path": "Samples~/BasicSetup"
     }
   ]

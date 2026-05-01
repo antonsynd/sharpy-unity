@@ -3,7 +3,9 @@
   "rootNamespace": "Sharpy.Unity.Editor.Tests",
   "references": [
     "Sharpy.Unity.Editor",
-    "Sharpy.Unity.Runtime"
+    "Sharpy.Unity.Runtime",
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner"
   ],
   "includePlatforms": [
     "Editor"
@@ -12,7 +14,8 @@
   "allowUnsafeCode": false,
   "overrideReferences": true,
   "precompiledReferences": [
-    "Sharpy.Core.dll"
+    "Sharpy.Core.dll",
+    "nunit.framework.dll"
   ],
   "autoReferenced": false,
   "defineConstraints": [

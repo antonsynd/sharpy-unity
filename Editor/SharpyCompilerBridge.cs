@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 
@@ -60,7 +61,14 @@ namespace Sharpy.Unity.Editor
                 args += " --show-line-directives";
             }
 
-            return RunCompiler(args, settings.CompilerTimeoutSeconds);
+            var result = RunCompiler(args, settings.CompilerTimeoutSeconds);
+
+            if (!result.Success)
+            {
+                result.Diagnostics = ParseTextDiagnostics(result.Stderr, spyPath);
+            }
+
+            return result;
         }
 
         public static CompileResult CompileProject(string spyprojPath, string outputDir)
@@ -74,7 +82,9 @@ namespace Sharpy.Unity.Editor
         {
             var settings = SharpySettings.instance;
             var args = $"emit diagnostics \"{spyPath}\" --format json";
-            return RunCompiler(args, settings.CompilerTimeoutSeconds);
+            var result = RunCompiler(args, settings.CompilerTimeoutSeconds);
+            result.Diagnostics = ParseJsonDiagnostics(result.Stdout, spyPath);
+            return result;
         }
 
         private static CompileResult RunCompiler(string arguments, int timeoutSeconds)
@@ -138,6 +148,103 @@ namespace Sharpy.Unity.Editor
             }
 
             return result;
+        }
+
+        internal static List<SharpyDiagnostic> ParseJsonDiagnostics(string json, string fallbackFilePath)
+        {
+            var diagnostics = new List<SharpyDiagnostic>();
+
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return diagnostics;
+            }
+
+            json = json.Trim();
+
+            if (!json.StartsWith("["))
+            {
+                return diagnostics;
+            }
+
+            var wrapper = JsonUtility.FromJson<DiagnosticArrayWrapper>(
+                "{\"items\":" + json + "}");
+
+            if (wrapper?.items == null)
+            {
+                return diagnostics;
+            }
+
+            foreach (var item in wrapper.items)
+            {
+                diagnostics.Add(new SharpyDiagnostic
+                {
+                    Severity = ParseSeverity(item.severity),
+                    Code = item.code ?? string.Empty,
+                    Line = item.line,
+                    Column = item.column,
+                    Message = item.message ?? string.Empty,
+                    Phase = item.phase ?? string.Empty,
+                    FilePath = fallbackFilePath
+                });
+            }
+
+            return diagnostics;
+        }
+
+        private static readonly Regex TextDiagnosticPattern = new Regex(
+            @"^(error|warning|info|hint)\s+(\S+)\s+\((\d+):(\d+)\):\s+(.+)$",
+            RegexOptions.Multiline);
+
+        internal static List<SharpyDiagnostic> ParseTextDiagnostics(string text, string fallbackFilePath)
+        {
+            var diagnostics = new List<SharpyDiagnostic>();
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return diagnostics;
+            }
+
+            foreach (Match match in TextDiagnosticPattern.Matches(text))
+            {
+                diagnostics.Add(new SharpyDiagnostic
+                {
+                    Severity = ParseSeverity(match.Groups[1].Value),
+                    Code = match.Groups[2].Value,
+                    Line = int.Parse(match.Groups[3].Value),
+                    Column = int.Parse(match.Groups[4].Value),
+                    Message = match.Groups[5].Value,
+                    FilePath = fallbackFilePath
+                });
+            }
+
+            return diagnostics;
+        }
+
+        private static SharpyDiagnostic.DiagnosticSeverity ParseSeverity(string severity)
+        {
+            return severity?.ToLowerInvariant() switch
+            {
+                "error" => SharpyDiagnostic.DiagnosticSeverity.Error,
+                "warning" => SharpyDiagnostic.DiagnosticSeverity.Warning,
+                _ => SharpyDiagnostic.DiagnosticSeverity.Info
+            };
+        }
+
+        [Serializable]
+        private class DiagnosticJsonItem
+        {
+            public string severity;
+            public string code;
+            public int line;
+            public int column;
+            public string message;
+            public string phase;
+        }
+
+        [Serializable]
+        private class DiagnosticArrayWrapper
+        {
+            public DiagnosticJsonItem[] items;
         }
     }
 }
