@@ -40,6 +40,13 @@ crashlytics-build.properties
 # Unity generated
 Assets/SharpyGenerated/
 
+# Downloaded compiler binaries (fetched at install time)
+Editor/Binaries/osx-arm64/
+Editor/Binaries/osx-x64/
+Editor/Binaries/win-x64/
+Editor/Binaries/linux-x64/
+Editor/Binaries/linux-arm64/
+
 # IDE
 .idea/
 .vs/
