@@ -17,7 +17,19 @@ namespace Sharpy.Unity.Editor
         {
             CleanupLegacyPackageBinaries();
 
+            // Deferred so SharpySettings isn't loaded during InitializeOnLoad.
+            EditorApplication.delayCall += AutoInstallIfNeeded;
+        }
+
+        private static void AutoInstallIfNeeded()
+        {
             if (IsCompilerInstalled())
+            {
+                return;
+            }
+
+            // A custom compiler path opts out of the managed install.
+            if (!string.IsNullOrWhiteSpace(SharpySettings.instance.CustomCompilerPath))
             {
                 return;
             }
@@ -29,7 +41,7 @@ namespace Sharpy.Unity.Editor
             }
             else
             {
-                EditorApplication.delayCall += PromptDownload;
+                PromptDownload();
             }
         }
 

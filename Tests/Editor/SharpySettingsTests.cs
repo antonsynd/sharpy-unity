@@ -41,6 +41,13 @@ namespace Sharpy.Unity.Editor.Tests
         }
 
         [Test]
+        public void DefaultCustomCompilerPath_IsEmpty()
+        {
+            var settings = SharpySettings.instance;
+            Assert.AreEqual("", settings.CustomCompilerPath);
+        }
+
+        [Test]
         public void DefaultShowLineDirectives_IsFalse()
         {
             var settings = SharpySettings.instance;

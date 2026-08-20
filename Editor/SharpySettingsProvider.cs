@@ -10,6 +10,7 @@ namespace Sharpy.Unity.Editor
     {
         private SerializedObject serializedSettings;
         private string cachedVersion;
+        private string cachedVersionPath;
 
         public SharpySettingsProvider(string path, SettingsScope scope)
             : base(path, scope) { }
@@ -42,24 +43,46 @@ namespace Sharpy.Unity.Editor
 
             EditorGUILayout.LabelField("Compiler", EditorStyles.boldLabel);
 
-            string compilerPath = SharpyCompilerBridge.GetCompilerPath();
+            var customPathProperty = serializedSettings.FindProperty("customCompilerPath");
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PropertyField(
+                customPathProperty,
+                new GUIContent(
+                    "Custom Compiler Path",
+                    "Absolute path to a sharpyc binary. When set, it wins over the managed install and the download prompt is suppressed."));
+
+            if (GUILayout.Button("Browse...", GUILayout.Width(70)))
+            {
+                string picked = EditorUtility.OpenFilePanel("Select sharpyc binary", "", "");
+
+                if (!string.IsNullOrEmpty(picked))
+                {
+                    customPathProperty.stringValue = picked;
+                }
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            string compilerPath = SharpyCompilerBridge.ResolveCompilerPath(customPathProperty.stringValue);
             bool compilerExists = System.IO.File.Exists(compilerPath);
 
             EditorGUI.BeginDisabledGroup(true);
-            EditorGUILayout.TextField("Compiler Path", compilerPath);
+            EditorGUILayout.TextField("Resolved Path", compilerPath);
 
             if (compilerExists)
             {
-                if (cachedVersion == null)
+                if (cachedVersion == null || cachedVersionPath != compilerPath)
                 {
                     cachedVersion = SharpyCompilerBridge.GetCompilerVersion();
+                    cachedVersionPath = compilerPath;
                 }
 
                 EditorGUILayout.TextField("Version", cachedVersion);
             }
             else
             {
-                EditorGUILayout.TextField("Version", "not installed");
+                EditorGUILayout.TextField("Version", "not found");
             }
 
             EditorGUI.EndDisabledGroup();

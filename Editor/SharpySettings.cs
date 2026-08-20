@@ -13,6 +13,7 @@ namespace Sharpy.Unity.Editor
         [SerializeField] private int compilerTimeoutSeconds = 30;
         [SerializeField] private bool autoCompileOnSave = true;
         [SerializeField] private string rootNamespace = "";
+        [SerializeField] private string customCompilerPath = "";
         [SerializeField] private bool showLineDirectives;
         [SerializeField] private List<string> additionalModulePaths = new List<string>();
         [SerializeField] private List<string> additionalReferences = new List<string>();
@@ -21,6 +22,7 @@ namespace Sharpy.Unity.Editor
         public int CompilerTimeoutSeconds => compilerTimeoutSeconds;
         public bool AutoCompileOnSave => autoCompileOnSave;
         public string RootNamespace => rootNamespace;
+        public string CustomCompilerPath => customCompilerPath;
         public bool ShowLineDirectives => showLineDirectives;
         public List<string> AdditionalModulePaths => additionalModulePaths;
         public List<string> AdditionalReferences => additionalReferences;

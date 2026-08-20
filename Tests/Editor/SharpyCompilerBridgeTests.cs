@@ -115,6 +115,26 @@ namespace Sharpy.Unity.Editor.Tests
         }
 
         [Test]
+        public void ResolveCompilerPath_CustomPathSet_WinsOverManaged()
+        {
+            Assert.AreEqual(
+                "/opt/tools/sharpyc",
+                SharpyCompilerBridge.ResolveCompilerPath("  /opt/tools/sharpyc  "));
+        }
+
+        [Test]
+        public void ResolveCompilerPath_NullOrWhitespace_FallsBackToManagedInstall()
+        {
+            foreach (string custom in new[] { null, "", "   " })
+            {
+                string resolved = SharpyCompilerBridge.ResolveCompilerPath(custom);
+
+                StringAssert.Contains("SharpyCompiler", resolved);
+                StringAssert.Contains(SharpyToolchain.Version, resolved);
+            }
+        }
+
+        [Test]
         public void FirstLine_MultiLineVersionOutput_ReturnsFirstLine()
         {
             string output = "sharpyc 0.15.0+84a2cef70\nRuntime: .NET 10.0.11\nOS: macOS 26.6.2\n";

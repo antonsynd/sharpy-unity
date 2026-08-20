@@ -24,7 +24,16 @@ namespace Sharpy.Unity.Editor
     {
         public static string GetCompilerPath()
         {
-            return GetManagedCompilerPath();
+            return ResolveCompilerPath(SharpySettings.instance.CustomCompilerPath);
+        }
+
+        // A non-empty custom path wins over the managed install; it is the
+        // escape hatch for dev machines running sharpyc as a dotnet tool.
+        internal static string ResolveCompilerPath(string customCompilerPath)
+        {
+            return string.IsNullOrWhiteSpace(customCompilerPath)
+                ? GetManagedCompilerPath()
+                : customCompilerPath.Trim();
         }
 
         // Managed installs live under the project's Library/ folder: writable
