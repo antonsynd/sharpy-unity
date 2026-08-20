@@ -62,5 +62,21 @@ namespace Sharpy.Unity.Editor.Tests
             Assert.IsNotNull(settings.AdditionalReferences);
             Assert.AreEqual(0, settings.AdditionalReferences.Count);
         }
+
+        [Test]
+        public void NamespaceCollidesWithSharpy_SharpySegment_ReturnsTrue()
+        {
+            Assert.IsTrue(SharpySettings.NamespaceCollidesWithSharpy("Sharpy"));
+            Assert.IsTrue(SharpySettings.NamespaceCollidesWithSharpy("Game.Sharpy.Core"));
+        }
+
+        [Test]
+        public void NamespaceCollidesWithSharpy_NoSharpySegment_ReturnsFalse()
+        {
+            Assert.IsFalse(SharpySettings.NamespaceCollidesWithSharpy(null));
+            Assert.IsFalse(SharpySettings.NamespaceCollidesWithSharpy(""));
+            Assert.IsFalse(SharpySettings.NamespaceCollidesWithSharpy("Game"));
+            Assert.IsFalse(SharpySettings.NamespaceCollidesWithSharpy("MySharpy"));
+        }
     }
 }

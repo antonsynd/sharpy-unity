@@ -102,9 +102,16 @@ namespace Sharpy.Unity.Editor
                 serializedSettings.FindProperty("generatedOutputPath"),
                 new GUIContent("Generated Output Path"));
 
-            EditorGUILayout.PropertyField(
-                serializedSettings.FindProperty("rootNamespace"),
-                new GUIContent("Root Namespace"));
+            var rootNamespaceProperty = serializedSettings.FindProperty("rootNamespace");
+
+            EditorGUILayout.PropertyField(rootNamespaceProperty, new GUIContent("Root Namespace"));
+
+            if (SharpySettings.NamespaceCollidesWithSharpy(rootNamespaceProperty.stringValue))
+            {
+                EditorGUILayout.HelpBox(
+                    "A \"Sharpy\" segment in the root namespace shadows the Sharpy.* runtime types that generated code references. Choose a different namespace.",
+                    MessageType.Warning);
+            }
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Advanced", EditorStyles.boldLabel);

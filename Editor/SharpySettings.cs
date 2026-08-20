@@ -29,5 +29,26 @@ namespace Sharpy.Unity.Editor
         {
             Save(true);
         }
+
+        // A `Sharpy` segment in the root namespace shadows the Sharpy.* root
+        // namespace inside generated code, breaking its Sharpy.Core
+        // references (this bit the plugin's own source once).
+        internal static bool NamespaceCollidesWithSharpy(string ns)
+        {
+            if (string.IsNullOrEmpty(ns))
+            {
+                return false;
+            }
+
+            foreach (string segment in ns.Split('.'))
+            {
+                if (segment == "Sharpy")
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

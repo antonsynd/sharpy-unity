@@ -93,6 +93,7 @@ namespace Sharpy.Unity.Editor
             SharpyBinaryDownloader.EnsureVersionChecked();
 
             var settings = SharpySettings.instance;
+            WarnOnNamespaceCollision(settings.RootNamespace);
             var args = BuildCompileArgs(
                 spyPath,
                 outputCsPath,
@@ -115,6 +116,23 @@ namespace Sharpy.Unity.Editor
             }
 
             return result;
+        }
+
+        private const string NamespaceWarningSessionKey = "Sharpy.NamespaceCollisionWarned";
+
+        private static void WarnOnNamespaceCollision(string rootNamespace)
+        {
+            if (!SharpySettings.NamespaceCollidesWithSharpy(rootNamespace)
+                || SessionState.GetBool(NamespaceWarningSessionKey, false))
+            {
+                return;
+            }
+
+            SessionState.SetBool(NamespaceWarningSessionKey, true);
+            UnityEngine.Debug.LogWarning(
+                $"[Sharpy] Root namespace \"{rootNamespace}\" contains a \"Sharpy\" segment, "
+                + "which shadows the Sharpy.* types generated code references. "
+                + "Compilation of the generated C# will likely fail.");
         }
 
         internal static string BuildCompileArgs(
