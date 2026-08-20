@@ -115,6 +115,39 @@ namespace Sharpy.Unity.Editor.Tests
         }
 
         [Test]
+        public void ExtractSemver_VersionWithBuildMetadata_ReturnsBareSemver()
+        {
+            Assert.AreEqual("0.15.0", SharpyCompilerBridge.ExtractSemver("sharpyc 0.15.0+84a2cef70"));
+        }
+
+        [Test]
+        public void ExtractSemver_BareVersion_ReturnsSemver()
+        {
+            Assert.AreEqual("0.16.1", SharpyCompilerBridge.ExtractSemver("sharpyc 0.16.1"));
+        }
+
+        [Test]
+        public void ExtractSemver_Garbage_ReturnsNull()
+        {
+            Assert.IsNull(SharpyCompilerBridge.ExtractSemver("unknown"));
+            Assert.IsNull(SharpyCompilerBridge.ExtractSemver(null));
+            Assert.IsNull(SharpyCompilerBridge.ExtractSemver(""));
+        }
+
+        [Test]
+        public void MatchesPin_PinnedVersion_ReturnsTrue()
+        {
+            Assert.IsTrue(SharpyCompilerBridge.MatchesPin(SharpyToolchain.Version));
+        }
+
+        [Test]
+        public void MatchesPin_OtherOrNull_ReturnsFalse()
+        {
+            Assert.IsFalse(SharpyCompilerBridge.MatchesPin("0.0.1"));
+            Assert.IsFalse(SharpyCompilerBridge.MatchesPin(null));
+        }
+
+        [Test]
         public void ResolveCompilerPath_CustomPathSet_WinsOverManaged()
         {
             Assert.AreEqual(

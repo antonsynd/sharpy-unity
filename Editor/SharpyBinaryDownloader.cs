@@ -23,25 +23,92 @@ namespace Sharpy.Unity.Editor
 
         private static void AutoInstallIfNeeded()
         {
-            if (IsCompilerInstalled())
+            // A custom compiler path opts out of the managed install; a
+            // version mismatch there only warns.
+            if (!string.IsNullOrWhiteSpace(SharpySettings.instance.CustomCompilerPath))
+            {
+                EnsureVersionChecked();
+                return;
+            }
+
+            if (!IsCompilerInstalled())
+            {
+                if (Application.isBatchMode)
+                {
+                    Debug.Log("[Sharpy] Compiler not installed; downloading automatically (batch mode).");
+                    DownloadCompilerAsync();
+                }
+                else
+                {
+                    PromptDownload();
+                }
+
+                return;
+            }
+
+            EnsureVersionChecked();
+        }
+
+        private const string VersionCheckedSessionKey = "Sharpy.VersionGuardChecked";
+
+        // Compares the active compiler's version against the pin, once per
+        // editor session. Managed installs offer a re-download on mismatch;
+        // custom paths only warn (the user opted out of management).
+        internal static void EnsureVersionChecked()
+        {
+            if (SessionState.GetBool(VersionCheckedSessionKey, false))
             {
                 return;
             }
 
-            // A custom compiler path opts out of the managed install.
-            if (!string.IsNullOrWhiteSpace(SharpySettings.instance.CustomCompilerPath))
+            SessionState.SetBool(VersionCheckedSessionKey, true);
+
+            bool isCustom = !string.IsNullOrWhiteSpace(SharpySettings.instance.CustomCompilerPath);
+
+            if (!File.Exists(SharpyCompilerBridge.GetCompilerPath()))
             {
+                return;
+            }
+
+            string versionLine = SharpyCompilerBridge.GetCompilerVersion();
+            string semver = SharpyCompilerBridge.ExtractSemver(versionLine);
+
+            if (semver == null)
+            {
+                Debug.LogWarning($"[Sharpy] Could not determine compiler version (got \"{versionLine}\").");
+                return;
+            }
+
+            if (SharpyCompilerBridge.MatchesPin(semver))
+            {
+                return;
+            }
+
+            if (isCustom)
+            {
+                Debug.LogWarning(
+                    $"[Sharpy] Custom compiler is {semver}, but this package pins {SharpyToolchain.Version}. "
+                    + "Generated code may not match the bundled Sharpy.Core.dll.");
                 return;
             }
 
             if (Application.isBatchMode)
             {
-                Debug.Log("[Sharpy] Compiler not installed; downloading automatically (batch mode).");
+                Debug.Log($"[Sharpy] Installed compiler is {semver}; downloading pinned {SharpyToolchain.Version}.");
                 DownloadCompilerAsync();
+                return;
             }
-            else
+
+            bool redownload = EditorUtility.DisplayDialog(
+                "Sharpy Compiler Version Mismatch",
+                $"The installed Sharpy compiler is {semver}, but this package pins {SharpyToolchain.Version}.\n\n"
+                + "Download the pinned version?",
+                "Download",
+                "Not Now");
+
+            if (redownload)
             {
-                PromptDownload();
+                DownloadCompilerAsync();
             }
         }
 

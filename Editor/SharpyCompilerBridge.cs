@@ -55,6 +55,23 @@ namespace Sharpy.Unity.Editor
             return result.Success ? FirstLine(result.Stdout) : "unknown";
         }
 
+        internal static string ExtractSemver(string versionFirstLine)
+        {
+            if (string.IsNullOrEmpty(versionFirstLine))
+            {
+                return null;
+            }
+
+            // Ignores any +build / -prerelease suffix.
+            var match = Regex.Match(versionFirstLine, @"\d+\.\d+\.\d+");
+            return match.Success ? match.Value : null;
+        }
+
+        internal static bool MatchesPin(string semver)
+        {
+            return semver == SharpyToolchain.Version;
+        }
+
         // `--version` emits three lines (version, runtime, OS); only the first
         // identifies the compiler.
         internal static string FirstLine(string text)
@@ -72,6 +89,8 @@ namespace Sharpy.Unity.Editor
 
         public static CompileResult CompileFile(string spyPath, string outputCsPath)
         {
+            SharpyBinaryDownloader.EnsureVersionChecked();
+
             var settings = SharpySettings.instance;
             var args = $"emit csharp \"{spyPath}\" -o \"{outputCsPath}\" -t library";
 
