@@ -1,9 +1,11 @@
-using System.Collections.Generic;
-using UnityEditor;
-using UnityEngine;
-
 namespace Sharpy.Unity.Editor
 {
+    // Usings are inside the namespace so BCL names (Path, List, Math, ...) win
+    // over same-named Sharpy.* root types from the referenced Sharpy.Core.dll.
+    using System.Collections.Generic;
+    using UnityEditor;
+    using UnityEngine;
+
     public sealed class SharpySettingsProvider : SettingsProvider
     {
         private SerializedObject serializedSettings;

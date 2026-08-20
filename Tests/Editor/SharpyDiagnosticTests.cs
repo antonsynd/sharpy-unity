@@ -1,8 +1,10 @@
-using NUnit.Framework;
-using UnityEngine;
-
 namespace Sharpy.Unity.Editor.Tests
 {
+    // Usings are inside the namespace so BCL names (Path, List, Math, ...) win
+    // over same-named Sharpy.* root types from the referenced Sharpy.Core.dll.
+    using NUnit.Framework;
+    using UnityEngine;
+
     public class SharpyDiagnosticTests
     {
         [Test]

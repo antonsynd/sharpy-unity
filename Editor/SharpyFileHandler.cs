@@ -1,10 +1,12 @@
-using System.IO;
-using UnityEditor;
-using UnityEditor.Callbacks;
-using UnityEngine;
-
 namespace Sharpy.Unity.Editor
 {
+    // Usings are inside the namespace so BCL names (Path, List, Math, ...) win
+    // over same-named Sharpy.* root types from the referenced Sharpy.Core.dll.
+    using System.IO;
+    using UnityEditor;
+    using UnityEditor.Callbacks;
+    using UnityEngine;
+
     public static class SharpyFileHandler
     {
         [OnOpenAsset]
@@ -21,11 +23,11 @@ namespace Sharpy.Unity.Editor
 
             if (line > 0)
             {
-                Unity.CodeEditor.CodeEditor.CurrentEditor.OpenProject(fullPath, line);
+                global::Unity.CodeEditor.CodeEditor.CurrentEditor.OpenProject(fullPath, line);
             }
             else
             {
-                Unity.CodeEditor.CodeEditor.CurrentEditor.OpenProject(fullPath);
+                global::Unity.CodeEditor.CodeEditor.CurrentEditor.OpenProject(fullPath);
             }
 
             return true;

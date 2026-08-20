@@ -1,9 +1,11 @@
-using System.IO;
-using UnityEditor;
-using UnityEngine;
-
 namespace Sharpy.Unity.Editor
 {
+    // Usings are inside the namespace so BCL names (Path, List, Math, ...) win
+    // over same-named Sharpy.* root types from the referenced Sharpy.Core.dll.
+    using System.IO;
+    using UnityEditor;
+    using UnityEngine;
+
     [InitializeOnLoad]
     public static class SharpyGeneratedFolderManager
     {
