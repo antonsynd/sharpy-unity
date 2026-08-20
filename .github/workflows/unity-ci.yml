@@ -73,7 +73,9 @@ jobs:
 
       - name: Show Unity layout (diagnostics)
         if: failure()
-        run: find /opt/unity -maxdepth 5 -type d \( -name Managed -o -name BuiltInPackages \) 2>/dev/null
+        run: |
+          find /opt/unity -maxdepth 5 -type d \( -name Managed -o -name BuiltInPackages \) 2>/dev/null
+          find /opt/unity -name nunit.framework.dll 2>/dev/null
 
   test:
     name: Run Unity Tests

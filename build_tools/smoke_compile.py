@@ -115,22 +115,25 @@ def _version_key(managed_path):
 
 def find_nunit(managed):
     """Locate nunit.framework.dll in the editor's built-in com.unity.ext.nunit."""
-    nunit_suffix = Path("com.unity.ext.nunit") / "net40" / "unity-custom" / "nunit.framework.dll"
-
-    candidates = [
+    built_in_roots = [
         # macOS: .../Contents/Resources/Scripting/Managed -> Contents/Resources
-        managed.parent.parent / "PackageManager" / "BuiltInPackages" / nunit_suffix,
+        managed.parent.parent / "PackageManager" / "BuiltInPackages",
         # Linux editor image: .../Editor/Data/Managed -> Editor/Data/Resources
-        managed.parent / "Resources" / "PackageManager" / "BuiltInPackages" / nunit_suffix,
+        managed.parent / "Resources" / "PackageManager" / "BuiltInPackages",
     ]
 
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
+    for root in built_in_roots:
+        package_dir = root / "com.unity.ext.nunit"
 
-    for root in {managed.parent, managed.parent.parent}:
-        for found in root.glob(f"**/PackageManager/BuiltInPackages/{nunit_suffix}"):
-            return found
+        if not package_dir.is_dir():
+            continue
+
+        # The framework folder varies by package version (net35/unity-custom
+        # in 2022.3's 1.x, net40/unity-custom in newer editors); prefer the
+        # Unity-custom build over any stock one that may sit alongside it.
+        for pattern in ("**/unity-custom/nunit.framework.dll", "**/nunit.framework.dll"):
+            for found in sorted(package_dir.glob(pattern)):
+                return found
 
     return None
 
