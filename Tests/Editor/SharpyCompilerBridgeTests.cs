@@ -73,45 +73,52 @@ namespace Sharpy.Unity.Editor.Tests
         }
 
         [Test]
-        public void ParseTextDiagnostics_ValidText_ParsesCorrectly()
+        public void BuildFailureDiagnostics_JsonDiagnosticsPresent_PassesThemThrough()
         {
-            string text = "error SPY0200 (5:3): Unexpected token";
+            var json = new List<SharpyDiagnostic>
+            {
+                new SharpyDiagnostic { Severity = SharpyDiagnostic.DiagnosticSeverity.Error, Code = "SPY0200" }
+            };
 
-            List<SharpyDiagnostic> result = SharpyCompilerBridge.ParseTextDiagnostics(text, "test.spy");
+            List<SharpyDiagnostic> result = SharpyCompilerBridge.BuildFailureDiagnostics(
+                json, "stderr text", "test.spy");
+
+            Assert.AreSame(json, result);
+        }
+
+        [Test]
+        public void BuildFailureDiagnostics_EmptyJson_FallsBackToStderr()
+        {
+            List<SharpyDiagnostic> result = SharpyCompilerBridge.BuildFailureDiagnostics(
+                new List<SharpyDiagnostic>(), "error[SPY0322]: something broke\n", "test.spy");
 
             Assert.AreEqual(1, result.Count);
             Assert.AreEqual(SharpyDiagnostic.DiagnosticSeverity.Error, result[0].Severity);
-            Assert.AreEqual("SPY0200", result[0].Code);
-            Assert.AreEqual(5, result[0].Line);
-            Assert.AreEqual(3, result[0].Column);
-            Assert.AreEqual("Unexpected token", result[0].Message);
+            Assert.AreEqual("error[SPY0322]: something broke", result[0].Message);
             Assert.AreEqual("test.spy", result[0].FilePath);
         }
 
         [Test]
-        public void ParseTextDiagnostics_MultipleLines_ParsesAll()
+        public void BuildFailureDiagnostics_MalformedJsonOutput_FallsBackToStderr()
         {
-            string text = "error SPY0200 (1:1): first\nwarning SPY0300 (2:5): second";
+            List<SharpyDiagnostic> parsed = SharpyCompilerBridge.ParseJsonDiagnostics("not json", "test.spy");
 
-            List<SharpyDiagnostic> result = SharpyCompilerBridge.ParseTextDiagnostics(text, "test.spy");
+            List<SharpyDiagnostic> result = SharpyCompilerBridge.BuildFailureDiagnostics(
+                parsed, "raw stderr", "test.spy");
 
-            Assert.AreEqual(2, result.Count);
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("raw stderr", result[0].Message);
         }
 
         [Test]
-        public void ParseTextDiagnostics_EmptyInput_ReturnsEmpty()
+        public void BuildFailureDiagnostics_NoJsonNoStderr_ProducesGenericError()
         {
-            Assert.AreEqual(0, SharpyCompilerBridge.ParseTextDiagnostics(null, "test.spy").Count);
-            Assert.AreEqual(0, SharpyCompilerBridge.ParseTextDiagnostics("", "test.spy").Count);
-        }
+            List<SharpyDiagnostic> result = SharpyCompilerBridge.BuildFailureDiagnostics(
+                null, "   ", "test.spy");
 
-        [Test]
-        public void ParseTextDiagnostics_NonDiagnosticText_ReturnsEmpty()
-        {
-            List<SharpyDiagnostic> result = SharpyCompilerBridge.ParseTextDiagnostics(
-                "some random output text", "test.spy");
-
-            Assert.AreEqual(0, result.Count);
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual(SharpyDiagnostic.DiagnosticSeverity.Error, result[0].Severity);
+            Assert.IsNotEmpty(result[0].Message);
         }
 
         [Test]

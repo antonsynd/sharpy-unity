@@ -108,10 +108,42 @@ namespace Sharpy.Unity.Editor
 
             if (!result.Success)
             {
-                result.Diagnostics = ParseTextDiagnostics(result.Stderr, spyPath);
+                // Only re-run for diagnostics when the compiler actually ran
+                // and rejected the file; a timeout or missing binary would
+                // just fail the same way again.
+                var jsonDiagnostics = result.ExitCode > 0
+                    ? GetDiagnostics(spyPath).Diagnostics
+                    : new List<SharpyDiagnostic>();
+
+                result.Diagnostics = BuildFailureDiagnostics(jsonDiagnostics, result.Stderr, spyPath);
             }
 
             return result;
+        }
+
+        // The compiler's stderr is human-oriented (rustc-style) text;
+        // structured diagnostics come from an `emit diagnostics --format json`
+        // re-run. When that yields nothing, the raw stderr becomes a single
+        // error so failures are never silent.
+        internal static List<SharpyDiagnostic> BuildFailureDiagnostics(
+            List<SharpyDiagnostic> jsonDiagnostics, string stderr, string filePath)
+        {
+            if (jsonDiagnostics != null && jsonDiagnostics.Count > 0)
+            {
+                return jsonDiagnostics;
+            }
+
+            return new List<SharpyDiagnostic>
+            {
+                new SharpyDiagnostic
+                {
+                    Severity = SharpyDiagnostic.DiagnosticSeverity.Error,
+                    Message = string.IsNullOrWhiteSpace(stderr)
+                        ? "Compilation failed with no diagnostics."
+                        : stderr.Trim(),
+                    FilePath = filePath
+                }
+            };
         }
 
         public static CompileResult CompileProject(string spyprojPath, string outputDir)
@@ -229,35 +261,6 @@ namespace Sharpy.Unity.Editor
                     Column = item.column,
                     Message = item.message ?? string.Empty,
                     Phase = item.phase ?? string.Empty,
-                    FilePath = fallbackFilePath
-                });
-            }
-
-            return diagnostics;
-        }
-
-        private static readonly Regex TextDiagnosticPattern = new Regex(
-            @"^(error|warning|info|hint)\s+(\S+)\s+\((\d+):(\d+)\):\s+(.+)$",
-            RegexOptions.Multiline);
-
-        internal static List<SharpyDiagnostic> ParseTextDiagnostics(string text, string fallbackFilePath)
-        {
-            var diagnostics = new List<SharpyDiagnostic>();
-
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return diagnostics;
-            }
-
-            foreach (Match match in TextDiagnosticPattern.Matches(text))
-            {
-                diagnostics.Add(new SharpyDiagnostic
-                {
-                    Severity = ParseSeverity(match.Groups[1].Value),
-                    Code = match.Groups[2].Value,
-                    Line = int.Parse(match.Groups[3].Value),
-                    Column = int.Parse(match.Groups[4].Value),
-                    Message = match.Groups[5].Value,
                     FilePath = fallbackFilePath
                 });
             }
