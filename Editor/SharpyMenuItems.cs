@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -9,18 +10,22 @@ namespace Sharpy.Unity.Editor
         [MenuItem("Assets/Sharpy/Recompile All", false, 1000)]
         public static void RecompileAll()
         {
-            string[] spyGuids = AssetDatabase.FindAssets("", new[] { "Assets" });
-            int compiled = 0;
+            string[] allGuids = AssetDatabase.FindAssets("", new[] { "Assets" });
+            var spyPaths = new List<string>();
 
-            foreach (string guid in spyGuids)
+            foreach (string guid in allGuids)
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
 
-                if (Path.GetExtension(path) != ".spy")
+                if (Path.GetExtension(path) == ".spy")
                 {
-                    continue;
+                    spyPaths.Add(path);
                 }
+            }
 
+            for (int i = 0; i < spyPaths.Count; i++)
+            {
+                string path = spyPaths[i];
                 string outputPath = SharpyGeneratedFolderManager.GetGeneratedPath(path);
                 string outputDir = Path.GetDirectoryName(outputPath);
 
@@ -32,15 +37,14 @@ namespace Sharpy.Unity.Editor
                 EditorUtility.DisplayProgressBar(
                     "Sharpy — Recompiling",
                     path,
-                    (float)compiled / spyGuids.Length);
+                    (float)i / spyPaths.Count);
 
                 SharpyCompilerBridge.CompileFile(path, outputPath);
-                compiled++;
             }
 
             EditorUtility.ClearProgressBar();
             AssetDatabase.Refresh();
-            Debug.Log($"[Sharpy] Recompiled {compiled} .spy file(s).");
+            Debug.Log($"[Sharpy] Recompiled {spyPaths.Count} .spy file(s).");
         }
 
         [MenuItem("Assets/Sharpy/Recompile Selected", false, 1001)]

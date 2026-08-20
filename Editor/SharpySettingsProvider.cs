@@ -7,6 +7,7 @@ namespace Sharpy.Unity.Editor
     public sealed class SharpySettingsProvider : SettingsProvider
     {
         private SerializedObject serializedSettings;
+        private string cachedVersion;
 
         public SharpySettingsProvider(string path, SettingsScope scope)
             : base(path, scope) { }
@@ -40,8 +41,25 @@ namespace Sharpy.Unity.Editor
             EditorGUILayout.LabelField("Compiler", EditorStyles.boldLabel);
 
             string compilerPath = SharpyCompilerBridge.GetCompilerPath();
+            bool compilerExists = System.IO.File.Exists(compilerPath);
+
             EditorGUI.BeginDisabledGroup(true);
             EditorGUILayout.TextField("Compiler Path", compilerPath);
+
+            if (compilerExists)
+            {
+                if (cachedVersion == null)
+                {
+                    cachedVersion = SharpyCompilerBridge.GetCompilerVersion();
+                }
+
+                EditorGUILayout.TextField("Version", cachedVersion);
+            }
+            else
+            {
+                EditorGUILayout.TextField("Version", "not installed");
+            }
+
             EditorGUI.EndDisabledGroup();
 
             EditorGUILayout.PropertyField(

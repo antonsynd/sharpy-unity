@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -44,6 +45,12 @@ namespace Sharpy.Unity.Editor
                 : "sharpyc";
 
             return Path.Combine(packagePath, "Editor", "Binaries", platformDir, binaryName);
+        }
+
+        public static string GetCompilerVersion()
+        {
+            var result = RunCompiler("--version", 10);
+            return result.Success ? result.Stdout.Trim() : "unknown";
         }
 
         public static CompileResult CompileFile(string spyPath, string outputCsPath)
@@ -125,8 +132,8 @@ namespace Sharpy.Unity.Editor
                     return result;
                 }
 
-                result.Stdout = process.StandardOutput.ReadToEnd();
-                result.Stderr = process.StandardError.ReadToEnd();
+                Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
+                Task<string> stderrTask = process.StandardError.ReadToEndAsync();
 
                 if (!process.WaitForExit(timeoutSeconds * 1000))
                 {
@@ -137,6 +144,8 @@ namespace Sharpy.Unity.Editor
                     return result;
                 }
 
+                result.Stdout = stdoutTask.Result;
+                result.Stderr = stderrTask.Result;
                 result.ExitCode = process.ExitCode;
                 result.Success = process.ExitCode == 0;
             }
