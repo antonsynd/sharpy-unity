@@ -6,6 +6,7 @@ namespace Sharpy.Unity.Editor
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
+    using System.Text;
     using System.Text.RegularExpressions;
     using System.Threading.Tasks;
     using UnityEditor;
@@ -92,12 +93,12 @@ namespace Sharpy.Unity.Editor
             SharpyBinaryDownloader.EnsureVersionChecked();
 
             var settings = SharpySettings.instance;
-            var args = $"emit csharp \"{spyPath}\" -o \"{outputCsPath}\" -t library";
-
-            if (!string.IsNullOrEmpty(settings.RootNamespace))
-            {
-                args += $" --namespace \"{settings.RootNamespace}\"";
-            }
+            var args = BuildCompileArgs(
+                spyPath,
+                outputCsPath,
+                settings.RootNamespace,
+                settings.AdditionalModulePaths,
+                settings.AdditionalReferences);
 
             var result = RunCompiler(args, settings.CompilerTimeoutSeconds);
 
@@ -114,6 +115,45 @@ namespace Sharpy.Unity.Editor
             }
 
             return result;
+        }
+
+        internal static string BuildCompileArgs(
+            string spyPath,
+            string outputCsPath,
+            string rootNamespace,
+            IEnumerable<string> additionalModulePaths,
+            IEnumerable<string> additionalReferences)
+        {
+            var builder = new StringBuilder();
+            builder.Append($"emit csharp \"{spyPath}\" -o \"{outputCsPath}\" -t library");
+
+            if (!string.IsNullOrEmpty(rootNamespace))
+            {
+                builder.Append($" --namespace \"{rootNamespace}\"");
+            }
+
+            AppendRepeatable(builder, "-m", additionalModulePaths);
+            AppendRepeatable(builder, "-r", additionalReferences);
+
+            return builder.ToString();
+        }
+
+        // sharpyc takes one value per flag occurrence; empty entries in the
+        // settings lists are skipped.
+        private static void AppendRepeatable(StringBuilder builder, string flag, IEnumerable<string> values)
+        {
+            if (values == null)
+            {
+                return;
+            }
+
+            foreach (string value in values)
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    builder.Append($" {flag} \"{value.Trim()}\"");
+                }
+            }
         }
 
         // The compiler's stderr is human-oriented (rustc-style) text;

@@ -122,6 +122,56 @@ namespace Sharpy.Unity.Editor.Tests
         }
 
         [Test]
+        public void BuildCompileArgs_NoOptionalSettings_ProducesBaseArgs()
+        {
+            string args = SharpyCompilerBridge.BuildCompileArgs(
+                "Assets/foo.spy", "Assets/SharpyGenerated/foo.cs", "",
+                new List<string>(), new List<string>());
+
+            Assert.AreEqual(
+                "emit csharp \"Assets/foo.spy\" -o \"Assets/SharpyGenerated/foo.cs\" -t library",
+                args);
+        }
+
+        [Test]
+        public void BuildCompileArgs_ModulePathsAndReferences_AppendRepeatableFlags()
+        {
+            string args = SharpyCompilerBridge.BuildCompileArgs(
+                "a.spy", "a.cs", "Game",
+                new List<string> { "/mods/one", "/mods/two" },
+                new List<string> { "UnityEngine.CoreModule" });
+
+            Assert.AreEqual(
+                "emit csharp \"a.spy\" -o \"a.cs\" -t library --namespace \"Game\""
+                + " -m \"/mods/one\" -m \"/mods/two\" -r \"UnityEngine.CoreModule\"",
+                args);
+        }
+
+        [Test]
+        public void BuildCompileArgs_PathsWithSpaces_StayQuoted()
+        {
+            string args = SharpyCompilerBridge.BuildCompileArgs(
+                "My Assets/foo.spy", "out dir/foo.cs", null,
+                new List<string> { "/path with space" }, null);
+
+            StringAssert.Contains("\"My Assets/foo.spy\"", args);
+            StringAssert.Contains("-m \"/path with space\"", args);
+        }
+
+        [Test]
+        public void BuildCompileArgs_EmptyEntriesInLists_AreSkipped()
+        {
+            string args = SharpyCompilerBridge.BuildCompileArgs(
+                "a.spy", "a.cs", "",
+                new List<string> { "", "   ", "/real" },
+                new List<string> { null });
+
+            Assert.AreEqual(
+                "emit csharp \"a.spy\" -o \"a.cs\" -t library -m \"/real\"",
+                args);
+        }
+
+        [Test]
         public void ExtractSemver_VersionWithBuildMetadata_ReturnsBareSemver()
         {
             Assert.AreEqual("0.15.0", SharpyCompilerBridge.ExtractSemver("sharpyc 0.15.0+84a2cef70"));
