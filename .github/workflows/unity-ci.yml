@@ -49,32 +49,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # This package is a UPM package, not a full Unity project. To run tests
-      # with the Unity Test Runner, we need to create a minimal Unity project
-      # and link this package into its Packages directory.
-      - name: Setup minimal Unity project
-        run: |
-          mkdir -p TestProject/Assets
-          mkdir -p TestProject/ProjectSettings
-          mkdir -p TestProject/Packages
-
-          # Link the package into the project
-          ln -s $GITHUB_WORKSPACE TestProject/Packages/com.antonsynd.sharpy
-
-          # Create minimal ProjectVersion.txt
-          cat > TestProject/ProjectSettings/ProjectVersion.txt << 'EOF'
-          m_EditorVersion: 2022.3.22f1
-          EOF
-
-          # Create a manifest that references the local package
-          cat > TestProject/Packages/manifest.json << 'MANIFEST'
-          {
-            "dependencies": {
-              "com.antonsynd.sharpy": "file:com.antonsynd.sharpy"
-            }
-          }
-          MANIFEST
-
+      # This repo is a UPM package, not a Unity project. packageMode makes the
+      # action create a temporary project inside the container, add this
+      # package as a file: dependency, and register it in "testables" so the
+      # Unity Test Runner discovers the package's test assemblies. A hand-made
+      # host-side project with a workspace symlink does NOT work — the symlink
+      # target doesn't exist inside the docker container.
+      #
       # NOTE: UNITY_EMAIL, UNITY_PASSWORD, and UNITY_SERIAL secrets must be
       # configured for this step to work (see header comment).
       - uses: game-ci/unity-test-runner@v4
@@ -84,7 +65,8 @@ jobs:
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
           UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
         with:
-          projectPath: TestProject
+          packageMode: true
+          projectPath: ./
           testMode: EditMode
           unityVersion: 2022.3.22f1
           githubToken: ${{ secrets.GITHUB_TOKEN }}
