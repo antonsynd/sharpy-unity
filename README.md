@@ -5,7 +5,7 @@ Unity Editor plugin that makes `.spy` files work seamlessly inside Unity project
 ## Requirements
 
 - Unity 2022.3 LTS or later
-- Sharpy compiler (`sharpyc`) — bundled with this package
+- Sharpy compiler (`sharpyc`) — downloaded on demand (first-launch prompt, or **Assets > Sharpy > Download Compiler**)
 
 ## Installation
 
@@ -52,8 +52,9 @@ Open **Edit > Project Settings > Sharpy** to configure:
 ```
 
 The plugin ships with:
-- `sharpyc` compiler binaries (macOS arm64/x64, Windows x64, Linux x64) — editor-only
 - `Sharpy.Core.dll` (netstandard2.1) — runtime dependency for `Sharpy.Builtins`, `Sharpy.List<T>`, etc.
+
+The `sharpyc` compiler itself is not part of the package. On first launch the plugin offers to download the pinned release build for your platform (macOS arm64/x64, Windows x64, Linux x64/arm64) into `Library/SharpyCompiler/<version>/<platform>/` — per-project, git-ignored by Unity convention, and editor-only.
 
 ## Development
 
@@ -61,7 +62,6 @@ This is a [Unity Package Manager](https://docs.unity3d.com/Manual/CustomPackages
 
 ```
 ├── Editor/                  # Editor-only scripts (compiler bridge, settings, UI)
-│   └── Binaries/            # Platform-specific sharpyc binaries
 ├── Runtime/                 # Runtime scripts
 ├── Plugins/Sharpy.Core/     # Sharpy.Core.dll (netstandard2.1)
 ├── Tests/Editor/            # Unity Test Runner tests
