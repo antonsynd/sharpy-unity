@@ -6,9 +6,12 @@ on:
   pull_request:
     branches: [mainline]
 
-# NOTE: The UNITY_LICENSE secret must be configured in the repository settings.
-# See https://game.ci/docs/github/activation for instructions on obtaining and
-# configuring a Unity license for GitHub Actions.
+# NOTE: unity-test-runner@v4 activates via Unity account credentials — the
+# UNITY_EMAIL, UNITY_PASSWORD, and UNITY_SERIAL secrets must be configured in
+# the repository settings. For a personal license the serial starts with "F"
+# (visible in Unity Hub under Manage Licenses). The legacy UNITY_LICENSE (.ulf
+# contents) secret is NOT forwarded into the container by v4 and cannot
+# activate on its own. See https://game.ci/docs/github/activation
 
 jobs:
   validate:
@@ -61,7 +64,6 @@ jobs:
           # Create minimal ProjectVersion.txt
           cat > TestProject/ProjectSettings/ProjectVersion.txt << 'EOF'
           m_EditorVersion: 2022.3.22f1
-          m_EditorVersionWithRevision: 2022.3.22f1 (a]b1c2d3e4f5)
           EOF
 
           # Create a manifest that references the local package
@@ -73,12 +75,14 @@ jobs:
           }
           MANIFEST
 
-      # NOTE: UNITY_LICENSE secret must be configured for this step to work.
-      # See https://game.ci/docs/github/activation for setup instructions.
+      # NOTE: UNITY_EMAIL, UNITY_PASSWORD, and UNITY_SERIAL secrets must be
+      # configured for this step to work (see header comment).
       - uses: game-ci/unity-test-runner@v4
         id: tests
         env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
         with:
           projectPath: TestProject
           testMode: EditMode
