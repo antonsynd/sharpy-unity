@@ -224,6 +224,24 @@ def bundle_all(ctx: click.Context, configuration: str):
 
 
 # ---------------------------------------------------------------------------
+# smoke-compile
+# ---------------------------------------------------------------------------
+
+
+@main.command("smoke-compile")
+@click.option(
+    "--unity-path",
+    default=None,
+    help="Path to a Unity editor's Managed directory.",
+)
+def smoke_compile(unity_path):
+    """Compile the package's assemblies against Unity DLLs (no license)."""
+    from build_tools.smoke_compile import run_smoke_compile
+
+    sys.exit(run_smoke_compile(unity_path))
+
+
+# ---------------------------------------------------------------------------
 # update-toolchain
 # ---------------------------------------------------------------------------
 
