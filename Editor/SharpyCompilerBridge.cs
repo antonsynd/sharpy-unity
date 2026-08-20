@@ -24,29 +24,20 @@ namespace Sharpy.Unity.Editor
     {
         public static string GetCompilerPath()
         {
-            string platformDir;
+            return GetManagedCompilerPath();
+        }
 
-            if (Application.platform == RuntimePlatform.OSXEditor)
-            {
-                platformDir = SystemInfo.processorType.Contains("Apple")
-                    ? "osx-arm64"
-                    : "osx-x64";
-            }
-            else if (Application.platform == RuntimePlatform.WindowsEditor)
-            {
-                platformDir = "win-x64";
-            }
-            else
-            {
-                platformDir = "linux-x64";
-            }
+        // Managed installs live under the project's Library/ folder: writable
+        // even for immutable (git-URL) package installs, never imported as
+        // assets, and version-segmented so a pin bump triggers a fresh
+        // download without disturbing the old one.
+        public static string GetManagedCompilerPath()
+        {
+            string rid = SharpyToolchain.GetPlatformRid();
+            string binaryName = rid.StartsWith("win") ? "sharpyc.exe" : "sharpyc";
 
-            string packagePath = Path.GetFullPath("Packages/com.antonsynd.sharpy");
-            string binaryName = Application.platform == RuntimePlatform.WindowsEditor
-                ? "sharpyc.exe"
-                : "sharpyc";
-
-            return Path.Combine(packagePath, "Editor", "Binaries", platformDir, binaryName);
+            return Path.GetFullPath(
+                Path.Combine("Library", "SharpyCompiler", SharpyToolchain.Version, rid, binaryName));
         }
 
         public static string GetCompilerVersion()

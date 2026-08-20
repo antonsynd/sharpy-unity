@@ -13,12 +13,21 @@ namespace Sharpy.Unity.Editor
     [InitializeOnLoad]
     public static class SharpyBinaryDownloader
     {
-        private const string CompilerVersion = "v0.1.2";
-        private const string ReleaseUrlBase = "https://github.com/antonsynd/sharpy/releases/download/";
-
         static SharpyBinaryDownloader()
         {
-            if (!IsCompilerInstalled())
+            CleanupLegacyPackageBinaries();
+
+            if (IsCompilerInstalled())
+            {
+                return;
+            }
+
+            if (Application.isBatchMode)
+            {
+                Debug.Log("[Sharpy] Compiler not installed; downloading automatically (batch mode).");
+                DownloadCompilerAsync();
+            }
+            else
             {
                 EditorApplication.delayCall += PromptDownload;
             }
@@ -26,13 +35,19 @@ namespace Sharpy.Unity.Editor
 
         public static bool IsCompilerInstalled()
         {
-            string compilerPath = SharpyCompilerBridge.GetCompilerPath();
+            string compilerPath = SharpyCompilerBridge.GetManagedCompilerPath();
             return File.Exists(compilerPath);
         }
 
         [MenuItem("Assets/Sharpy/Download Compiler", false, 2000)]
         public static void PromptDownload()
         {
+            if (Application.isBatchMode)
+            {
+                DownloadCompilerAsync();
+                return;
+            }
+
             if (IsCompilerInstalled())
             {
                 bool redownload = EditorUtility.DisplayDialog(
@@ -51,8 +66,8 @@ namespace Sharpy.Unity.Editor
                 bool proceed = EditorUtility.DisplayDialog(
                     "Sharpy Compiler Required",
                     "The Sharpy compiler binary is not installed. Download it now?\n\n"
-                    + $"Version: {CompilerVersion}\n"
-                    + $"Platform: {GetPlatformRid()}",
+                    + $"Version: {SharpyToolchain.Version}\n"
+                    + $"Platform: {SharpyToolchain.GetPlatformRid()}",
                     "Download",
                     "Cancel");
 
@@ -65,14 +80,54 @@ namespace Sharpy.Unity.Editor
             DownloadCompilerAsync();
         }
 
+        // Pre-0.16 versions of this package extracted the compiler inside the
+        // package itself, where Unity imported every file as an asset. Only
+        // mutable (embedded/local) installs can be cleaned; anything else is
+        // left alone.
+        private static void CleanupLegacyPackageBinaries()
+        {
+            try
+            {
+                var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(
+                    typeof(SharpyBinaryDownloader).Assembly);
+
+                if (package == null
+                    || (package.source != UnityEditor.PackageManager.PackageSource.Embedded
+                        && package.source != UnityEditor.PackageManager.PackageSource.Local))
+                {
+                    return;
+                }
+
+                string legacyDir = Path.Combine(package.resolvedPath, "Editor", "Binaries");
+
+                if (!Directory.Exists(legacyDir))
+                {
+                    return;
+                }
+
+                Directory.Delete(legacyDir, true);
+
+                string metaFile = legacyDir + ".meta";
+
+                if (File.Exists(metaFile))
+                {
+                    File.Delete(metaFile);
+                }
+
+                Debug.Log("[Sharpy] Removed legacy in-package compiler binaries; the compiler now installs under Library/SharpyCompiler.");
+            }
+            catch (Exception ex)
+            {
+                Debug.Log($"[Sharpy] Could not remove legacy Editor/Binaries directory: {ex.Message}");
+            }
+        }
+
         private static async void DownloadCompilerAsync()
         {
-            string rid = GetPlatformRid();
+            string rid = SharpyToolchain.GetPlatformRid();
             string extension = rid.StartsWith("win") ? "zip" : "tar.gz";
-            string url = $"{ReleaseUrlBase}{CompilerVersion}/sharpyc-{rid}.{extension}";
-
-            string packagePath = Path.GetFullPath("Packages/com.antonsynd.sharpy");
-            string binariesDir = Path.Combine(packagePath, "Editor", "Binaries", rid);
+            string url = $"{SharpyToolchain.ReleaseUrlBase}sharpyc-{rid}.{extension}";
+            string binariesDir = Path.GetDirectoryName(SharpyCompilerBridge.GetManagedCompilerPath());
 
             try
             {
@@ -111,11 +166,20 @@ namespace Sharpy.Unity.Editor
                 EditorUtility.DisplayProgressBar("Sharpy", "Done!", 1.0f);
                 EditorUtility.ClearProgressBar();
 
-                Debug.Log($"[Sharpy] Compiler {CompilerVersion} installed for {rid}.");
+                Debug.Log($"[Sharpy] Compiler {SharpyToolchain.Version} installed for {rid} under Library/SharpyCompiler.");
             }
             catch (Exception ex)
             {
                 EditorUtility.ClearProgressBar();
+
+                if (Application.isBatchMode)
+                {
+                    // A warning, not an error: an error log would fail any
+                    // batch test run that merely lacked network access.
+                    Debug.LogWarning($"[Sharpy] Failed to download compiler: {ex.Message}");
+                    return;
+                }
+
                 Debug.LogError($"[Sharpy] Failed to download compiler: {ex.Message}");
                 EditorUtility.DisplayDialog(
                     "Sharpy Download Failed",
@@ -123,23 +187,6 @@ namespace Sharpy.Unity.Editor
                     + "You can retry via Assets > Sharpy > Download Compiler.",
                     "OK");
             }
-        }
-
-        private static string GetPlatformRid()
-        {
-            if (Application.platform == RuntimePlatform.OSXEditor)
-            {
-                return SystemInfo.processorType.Contains("Apple")
-                    ? "osx-arm64"
-                    : "osx-x64";
-            }
-
-            if (Application.platform == RuntimePlatform.WindowsEditor)
-            {
-                return "win-x64";
-            }
-
-            return "linux-x64";
         }
 
         private static void ExtractTarGz(string archivePath, string outputDir)
