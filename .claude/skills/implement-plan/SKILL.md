@@ -36,7 +36,8 @@ Before spawning any agents, perform these checks yourself:
 - Run `git diff mainline...HEAD --stat` to see what's already been changed on this branch
 - If there are existing changes, note them so agents don't duplicate work
 
-### 5. Read existing code
+### 5. Establish baseline
+- Run the `/build` skill to validate the current scripts — if validation fails before starting, stop and report the error
 - Read all files in `Editor/` to understand current implementations
 - Read `unity-plugin.md` for the design spec context
 - Read `CLAUDE.md` for conventions

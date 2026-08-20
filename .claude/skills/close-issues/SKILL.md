@@ -59,11 +59,20 @@ For each VERIFIED issue:
 gh issue close <number> --reason completed --comment "Closed — implemented in $(git log --oneline --all --grep='#<number>' | head -1 | cut -d' ' -f1). Verified in codebase."
 ```
 
+If the commit hash isn't found via `--grep`, reference the branch name instead:
+
+```bash
+gh issue close <number> --reason completed --comment "Closed — implemented on branch $(git branch --show-current)."
+```
+
 ### 5. Handle unverified issues
 
 For PARTIAL issues:
-- Do **not** close
-- Add a comment noting what was implemented and what remains
+- Do **not** close the original issue
+- Add a comment noting what was implemented and what remains:
+  ```bash
+  gh issue comment <number> --body "Partial implementation found: <description>. Remaining work: <gaps>."
+  ```
 
 For NOT FOUND issues:
 - Do **not** close
