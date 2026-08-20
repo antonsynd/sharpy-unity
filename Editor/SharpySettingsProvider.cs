@@ -106,10 +106,6 @@ namespace Sharpy.Unity.Editor
                 serializedSettings.FindProperty("rootNamespace"),
                 new GUIContent("Root Namespace"));
 
-            EditorGUILayout.PropertyField(
-                serializedSettings.FindProperty("showLineDirectives"),
-                new GUIContent("Show #line Directives"));
-
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Advanced", EditorStyles.boldLabel);
 

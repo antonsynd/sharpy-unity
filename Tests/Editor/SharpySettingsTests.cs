@@ -48,13 +48,6 @@ namespace Sharpy.Unity.Editor.Tests
         }
 
         [Test]
-        public void DefaultShowLineDirectives_IsFalse()
-        {
-            var settings = SharpySettings.instance;
-            Assert.IsFalse(settings.ShowLineDirectives);
-        }
-
-        [Test]
         public void DefaultAdditionalModulePaths_IsEmpty()
         {
             var settings = SharpySettings.instance;

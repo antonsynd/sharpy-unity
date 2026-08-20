@@ -37,7 +37,7 @@ Open **Edit > Project Settings > Sharpy** to configure:
 - **Generated Output Path** — where generated C# files are written
 - **Root Namespace** — namespace wrapper for generated code
 - **Compiler Timeout** — max seconds per compilation
-- **Show #line Directives** — map Unity errors back to `.spy` source lines
+- **Custom Compiler Path** — absolute path to a `sharpyc` binary, overriding the managed install
 
 ### Menu Items
 

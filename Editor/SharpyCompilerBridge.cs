@@ -99,11 +99,6 @@ namespace Sharpy.Unity.Editor
                 args += $" --namespace \"{settings.RootNamespace}\"";
             }
 
-            if (settings.ShowLineDirectives)
-            {
-                args += " --show-line-directives";
-            }
-
             var result = RunCompiler(args, settings.CompilerTimeoutSeconds);
 
             if (!result.Success)
