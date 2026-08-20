@@ -52,7 +52,22 @@ namespace Sharpy.Unity.Editor
         public static string GetCompilerVersion()
         {
             var result = RunCompiler("--version", 10);
-            return result.Success ? result.Stdout.Trim() : "unknown";
+            return result.Success ? FirstLine(result.Stdout) : "unknown";
+        }
+
+        // `--version` emits three lines (version, runtime, OS); only the first
+        // identifies the compiler.
+        internal static string FirstLine(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return string.Empty;
+            }
+
+            string trimmed = text.Trim();
+            int newline = trimmed.IndexOf('\n');
+            string line = newline >= 0 ? trimmed.Substring(0, newline) : trimmed;
+            return line.Trim();
         }
 
         public static CompileResult CompileFile(string spyPath, string outputCsPath)

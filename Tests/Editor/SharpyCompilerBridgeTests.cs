@@ -115,6 +115,36 @@ namespace Sharpy.Unity.Editor.Tests
         }
 
         [Test]
+        public void FirstLine_MultiLineVersionOutput_ReturnsFirstLine()
+        {
+            string output = "sharpyc 0.15.0+84a2cef70\nRuntime: .NET 10.0.11\nOS: macOS 26.6.2\n";
+
+            Assert.AreEqual("sharpyc 0.15.0+84a2cef70", SharpyCompilerBridge.FirstLine(output));
+        }
+
+        [Test]
+        public void FirstLine_WindowsLineEndings_ReturnsFirstLine()
+        {
+            string output = "sharpyc 0.16.1\r\nRuntime: .NET 10.0.11\r\n";
+
+            Assert.AreEqual("sharpyc 0.16.1", SharpyCompilerBridge.FirstLine(output));
+        }
+
+        [Test]
+        public void FirstLine_SingleLine_ReturnsTrimmed()
+        {
+            Assert.AreEqual("sharpyc 0.16.1", SharpyCompilerBridge.FirstLine("  sharpyc 0.16.1  \n"));
+        }
+
+        [Test]
+        public void FirstLine_NullOrWhitespace_ReturnsEmpty()
+        {
+            Assert.AreEqual(string.Empty, SharpyCompilerBridge.FirstLine(null));
+            Assert.AreEqual(string.Empty, SharpyCompilerBridge.FirstLine(""));
+            Assert.AreEqual(string.Empty, SharpyCompilerBridge.FirstLine("   \n  "));
+        }
+
+        [Test]
         public void ParseJsonDiagnostics_WarningSeverity_MapsCorrectly()
         {
             string json = @"[{""severity"": ""warning"", ""code"": ""SPY0100"", ""line"": 1, ""column"": 1, ""message"": ""test"", ""phase"": ""Validation""}]";
