@@ -23,7 +23,7 @@ When Unity imports the `.spy` files, the Sharpy asset postprocessor detects them
 
 ## Using the Generated Classes
 
-After import, you can reference the generated classes from any C# script or MonoBehaviour:
+After import, you can reference the generated classes from any C# script or MonoBehaviour. Sharpy's snake_case members compile to PascalCase C#:
 
 ```csharp
 using UnityEngine;
@@ -34,15 +34,15 @@ public class ExampleUsage : MonoBehaviour
 
     void Start()
     {
-        // Static utility method
-        string greeting = HelloSharpy.greet("Unity");
+        // Static utility method (methods without `self` are static)
+        string greeting = HelloSharpy.Greet("Unity");
         Debug.Log(greeting);
 
         // Score tracker
         score = new GameScore("Player 1");
-        score.add_points(100);
-        score.add_points(50);
-        Debug.Log($"{score.get_player_name()}: {score.get_score()} points");
+        score.AddPoints(100);
+        score.AddPoints(50);
+        Debug.Log($"{score.GetPlayerName()}: {score.GetScore()} points");
     }
 }
 ```

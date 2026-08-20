@@ -1,12 +1,10 @@
 class HelloSharpy:
     """A simple utility class that demonstrates basic Sharpy syntax."""
 
-    @staticmethod
     def greet(name: str) -> str:
         """Return a greeting string for the given name."""
         return "Hello from Sharpy, " + name + "!"
 
-    @staticmethod
     def version() -> str:
         """Return the current version string."""
         return "0.1.0"
