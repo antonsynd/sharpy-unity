@@ -25,7 +25,7 @@ PLUGINS_RELPATH = Path("Plugins") / "Sharpy.Core"
 CHANGELOG_RELPATH = Path("CHANGELOG.md")
 
 VERSION_PATTERN = re.compile(r'(public const string Version = ")([^"]+)(";)')
-UNRELEASED_PATTERN = re.compile(r"^## \[Unreleased\]\s*$", re.MULTILINE)
+UNRELEASED_PATTERN = re.compile(r"^## \[Unreleased\][ \t]*$", re.MULTILINE)
 
 
 def run_update_toolchain(repo_root: Path, version: str, dry_run: bool, log) -> None:
@@ -143,7 +143,13 @@ def _read_pinned_version(toolchain_cs: Path, log) -> str:
 def _prepend_changelog_entry(changelog: Path, old_version: str, version: str,
                              dll_changes, log) -> None:
     today = datetime.date.today().isoformat()
-    lines = [f"- Sharpy toolchain: {old_version} -> {version} ({today})"]
+
+    if old_version == version:
+        headline = f"- Sharpy toolchain: DLLs refreshed at {version} ({today})"
+    else:
+        headline = f"- Sharpy toolchain: {old_version} -> {version} ({today})"
+
+    lines = [headline]
     lines += [f"  - {name}: {status}" for name, status in dll_changes]
     entry = "\n".join(lines)
 
