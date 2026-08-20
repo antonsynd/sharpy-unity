@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [mainline]
 
+# The test job posts a check run with the results, which needs checks: write
+# (the default GITHUB_TOKEN is read-only).
+permissions:
+  contents: read
+  checks: write
+
 # NOTE: unity-test-runner@v4 activates via Unity account credentials — the
 # UNITY_EMAIL, UNITY_PASSWORD, and UNITY_SERIAL secrets must be configured in
 # the repository settings. For a personal license the serial starts with "F"
