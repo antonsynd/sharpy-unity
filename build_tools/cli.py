@@ -224,6 +224,21 @@ def bundle_all(ctx: click.Context, configuration: str):
 
 
 # ---------------------------------------------------------------------------
+# update-toolchain
+# ---------------------------------------------------------------------------
+
+
+@main.command("update-toolchain")
+@click.argument("version")
+@click.option("--dry-run", is_flag=True, help="Print actions without writing.")
+def update_toolchain(version: str, dry_run: bool):
+    """Refresh Plugins DLLs and the version pin from a pinned sharpy release."""
+    from build_tools.update_toolchain import run_update_toolchain
+
+    run_update_toolchain(REPO_ROOT, version, dry_run, log)
+
+
+# ---------------------------------------------------------------------------
 # clean
 # ---------------------------------------------------------------------------
 
