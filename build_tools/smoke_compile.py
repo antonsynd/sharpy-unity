@@ -77,10 +77,15 @@ TESTS_CSPROJ = """<Project Sdk="Microsoft.NET.Sdk">
     <SharpyCoreDll Include="{repo}/Plugins/Sharpy.Core/*.dll" />
     <Reference Include="@(UnityModuleDll)" />
     <Reference Include="@(SharpyCoreDll)" />
-    <Reference Include="{nunit}" />
+    {nunit_item}
   </ItemGroup>
 </Project>
 """
+
+# Compile-time stand-in when the editor install ships no com.unity.ext.nunit
+# (the unityci -base images don't): the NuGet package of the same NUnit 3.x
+# line exposes the same API surface, which is all a syntax gate needs.
+NUNIT_NUGET_ITEM = '<PackageReference Include="NUnit" Version="3.13.3" />'
 
 
 def find_unity_managed(cli_path):
@@ -153,12 +158,12 @@ def run_smoke_compile(unity_path=None):
 
     nunit = find_nunit(managed)
 
-    if nunit is None:
-        print(
-            f"error: could not locate nunit.framework.dll near {managed}",
-            file=sys.stderr,
-        )
-        return 1
+    if nunit is not None:
+        nunit_item = f'<Reference Include="{nunit.as_posix()}" />'
+        nunit_label = str(nunit)
+    else:
+        nunit_item = NUNIT_NUGET_ITEM
+        nunit_label = "no com.unity.ext.nunit in this install; restoring NUnit from NuGet"
 
     dotnet = shutil.which("dotnet")
 
@@ -167,14 +172,14 @@ def run_smoke_compile(unity_path=None):
         return 1
 
     print(f"Unity Managed: {managed}")
-    print(f"nunit:         {nunit}")
+    print(f"nunit:         {nunit_label}")
 
     with tempfile.TemporaryDirectory(prefix="sharpy-smoke-") as tmp:
         tmp_path = Path(tmp)
         substitutions = {
             "repo": REPO_ROOT.as_posix(),
             "managed": managed.as_posix(),
-            "nunit": nunit.as_posix(),
+            "nunit_item": nunit_item,
         }
 
         (tmp_path / "Sharpy.Unity.Editor.csproj").write_text(
