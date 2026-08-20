@@ -18,7 +18,7 @@ This is a UPM package, **not** a Unity project. It follows [Unity package layout
 
 ```
 Editor/                      # Editor-only C# (Sharpy.Unity.Editor assembly)
-  Binaries/                  # Platform-specific sharpyc binaries (editor-only)
+  Binaries/                  # Legacy binary location (now empty; sharpyc installs to Library/)
   *.cs                       # Compiler bridge, asset postprocessor, settings, menus
 Runtime/                     # Runtime C# (Sharpy.Unity.Runtime assembly)
 Plugins/Sharpy.Core/         # Sharpy.Core.dll (netstandard2.1, runtime dependency)
@@ -26,6 +26,8 @@ Tests/Editor/                # Unity Test Runner tests (editor mode)
 Samples~/BasicSetup/         # UPM importable sample
 Documentation~/              # Package documentation (hidden from Unity)
 package.json                 # UPM manifest
+build_tools/                 # Python CLI: DLL/compiler bundling, smoke-compile, toolchain updates
+.github/workflows/           # CI (unity-ci.yml)
 ```
 
 ## Key Design Decisions
@@ -34,7 +36,7 @@ package.json                 # UPM manifest
 2. **AssetPostprocessor** — fires on `.spy` file import to trigger compilation
 3. **Generated files in `Assets/SharpyGenerated/`** — mirrors source structure, gitignored
 4. **Sharpy.Core.dll as a plugin** — netstandard2.1 build, runtime dependency
-5. **sharpyc as editor-only binary** — bundled per-platform, excluded from player builds
+5. **sharpyc downloaded, not bundled** — `SharpyBinaryDownloader` fetches the self-contained per-RID sharpyc from the sharpy GitHub release pinned in `SharpyToolchain.Version`, installing it under the project's `Library/` — never inside the package (the archive holds ~350 DLLs Unity would try to import)
 
 ## Architecture
 
@@ -60,6 +62,9 @@ package.json                 # UPM manifest
 | `SharpySettingsProvider` | `Editor/SharpySettingsProvider.cs` | Settings UI in Project Settings window |
 | `SharpyMenuItems` | `Editor/SharpyMenuItems.cs` | Menu items for manual compilation control |
 | `SharpyFileHandler` | `Editor/SharpyFileHandler.cs` | Opens .spy files in external editor |
+| `SharpyToolchain` | `Editor/SharpyToolchain.cs` | Pinned toolchain version, release URLs, platform RID |
+| `SharpyBinaryDownloader` | `Editor/SharpyBinaryDownloader.cs` | Auto-installs pinned sharpyc into `Library/` on editor load |
+| `SharpyFileInspector` | `Editor/SharpyFileInspector.cs` | Custom inspector for `.spy` assets |
 
 ## Assembly Definitions
 
@@ -69,10 +74,23 @@ package.json                 # UPM manifest
 
 ## Conventions
 
+- **Using directives go INSIDE the namespace block** in every package `.cs` file. Sharpy.Core declares 150+ root-namespace types (`Sharpy.List`, `Sharpy.Path`, `Sharpy.Math`, ...) that shadow BCL names from inside `Sharpy.Unity.*` namespaces; inner-scope usings win. `Unity.CodeEditor` must be written `global::Unity.CodeEditor` (leftmost `Unity` otherwise resolves to `Sharpy.Unity`).
 - C# style follows the sharpy project: 4-space indent, Allman braces, `LangVersion 9.0` (netstandard2.1 compatible)
 - No `#nullable enable` in Unity scripts (Unity's serialization doesn't support it well)
 - Namespace: `Sharpy.Unity.Editor` for editor code, `Sharpy.Unity.Runtime` for runtime code
 - Unity minimum version: 2022.3 LTS
+
+## Build Tools
+
+```bash
+python -m build_tools info                          # Package/toolchain status
+python -m build_tools bundle-all                    # Build Sharpy.Core DLLs + sharpyc from ../sharpy
+python -m build_tools update-toolchain <version>    # Re-pin to a sharpy release (bumps SharpyToolchain.Version + Plugins DLLs)
+python -m build_tools smoke-compile                 # csc-compile all asmdefs against Unity DLLs — no Unity license needed
+python -m build_tools format [--check]              # Normalize .cs line endings/EOF newlines
+```
+
+sharpyc and `Plugins/Sharpy.Core/*.dll` versions must move together — always update via `update-toolchain`, never by hand.
 
 ## Compiler Interface
 
@@ -91,3 +109,5 @@ Exit code 0 = success, 1 = errors. Diagnostics JSON includes `severity`, `code`,
 Tests run via Unity Test Runner in editor mode. Test assembly: `Sharpy.Unity.Editor.Tests`.
 
 No `dotnet test` — this is a Unity package, not a .NET solution.
+
+CI (`.github/workflows/unity-ci.yml`): package.json validation → license-free smoke compile (csc against the unityci editor image's DLLs) → licensed Unity Test Runner (requires `UNITY_EMAIL`/`UNITY_PASSWORD`/`UNITY_SERIAL` secrets). Run the smoke compile locally with `python -m build_tools smoke-compile`.
