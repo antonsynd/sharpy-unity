@@ -1,5 +1,7 @@
 # Sharpy Unity Integration
 
+[![Unity CI](https://github.com/antonsynd/sharpy-unity/actions/workflows/unity-ci.yml/badge.svg?branch=mainline)](https://github.com/antonsynd/sharpy-unity/actions/workflows/unity-ci.yml)
+
 Unity Editor plugin that makes `.spy` files work seamlessly inside Unity projects. Edit a `.spy` file, and the plugin automatically compiles it to C# via `sharpyc`, which Unity then compiles normally.
 
 ## Requirements
