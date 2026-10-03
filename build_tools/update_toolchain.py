@@ -167,5 +167,14 @@ def _prepend_changelog_entry(changelog: Path, old_version: str, version: str,
         sys.exit(1)
 
     insert_at = match.end()
-    content = content[:insert_at] + f"\n\n### Changed\n{entry}" + content[insert_at:]
+    # Reuse an existing "### Changed" heading directly under [Unreleased]
+    # rather than stacking a duplicate heading on every bump.
+    changed = re.compile(r"\s*### Changed[ \t]*\n").match(content, insert_at)
+
+    if changed is not None:
+        insert_at = changed.end()
+        content = content[:insert_at] + f"{entry}\n" + content[insert_at:]
+    else:
+        content = content[:insert_at] + f"\n\n### Changed\n{entry}" + content[insert_at:]
+
     changelog.write_text(content)
