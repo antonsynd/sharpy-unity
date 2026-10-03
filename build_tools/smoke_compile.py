@@ -70,7 +70,7 @@ TESTS_CSPROJ = """<Project Sdk="Microsoft.NET.Sdk">
     <Compile Include="{repo}/Tests/Editor/**/*.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="Sharpy.Unity.Editor.csproj" />
+    <ProjectReference Include="../editor/Sharpy.Unity.Editor.csproj" />
   </ItemGroup>
   <ItemGroup>
     <UnityModuleDll Include="{managed}/UnityEngine/*.dll" />
@@ -176,15 +176,22 @@ def run_smoke_compile(unity_path=None):
 
     with tempfile.TemporaryDirectory(prefix="sharpy-smoke-") as tmp:
         tmp_path = Path(tmp)
+        # Each csproj gets its own directory: projects sharing a folder share
+        # obj/project.assets.json, and whichever restore lands last wins — the
+        # Tests project then intermittently loses its NuGet NUnit reference.
+        editor_dir = tmp_path / "editor"
+        tests_dir = tmp_path / "tests"
+        editor_dir.mkdir()
+        tests_dir.mkdir()
         substitutions = {
             "repo": REPO_ROOT.as_posix(),
             "managed": managed.as_posix(),
             "nunit_item": nunit_item,
         }
 
-        (tmp_path / "Sharpy.Unity.Editor.csproj").write_text(
+        (editor_dir / "Sharpy.Unity.Editor.csproj").write_text(
             EDITOR_CSPROJ.format(**substitutions))
-        (tmp_path / "Sharpy.Unity.Editor.Tests.csproj").write_text(
+        (tests_dir / "Sharpy.Unity.Editor.Tests.csproj").write_text(
             TESTS_CSPROJ.format(**substitutions))
 
         # Building the tests project builds the editor assembly through the
@@ -192,7 +199,7 @@ def run_smoke_compile(unity_path=None):
         # boundary.
         result = subprocess.run(
             [dotnet, "build", "Sharpy.Unity.Editor.Tests.csproj", "-v:m", "--nologo"],
-            cwd=tmp_path,
+            cwd=tests_dir,
         )
 
     if result.returncode == 0:
