@@ -13,7 +13,7 @@ namespace Sharpy.Unity.Editor
     public static class SharpyToolchain
     {
         // Bumped by: python -m build_tools update-toolchain <version>
-        public const string Version = "0.16.1";
+        public const string Version = "0.21.0";
 
         public static string ReleaseTag => "v" + Version;
 
