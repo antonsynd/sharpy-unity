@@ -10,9 +10,9 @@ Verify a plan file for accuracy against the actual sharpy-unity codebase and the
 
 If `$ARGUMENTS` is non-empty, use it as the path to the plan file.
 
-If `$ARGUMENTS` is empty, find the most recently modified `.md` file in `~/.claude/plans/` using:
+Plans live in `.claude/plans/` (repo-local, gitignored); plans created before 2026-10-03 remain in `$HOME/.claude/plans/`. If `$ARGUMENTS` is empty, do **not** pick silently — list the three newest across both directories and ask which to verify:
 ```bash
-ls -t ~/.claude/plans/*.md | head -1
+ls -t .claude/plans/*.md "$HOME"/.claude/plans/*.md 2>/dev/null | head -3
 ```
 
 Read the plan file completely before proceeding.
@@ -62,6 +62,8 @@ Check that nothing is missing:
 - **Settings integration**: New features should integrate with `SharpySettings` where appropriate
 - **Error handling**: Plan should address what happens when sharpyc fails, times out, or is missing
 - **Platform handling**: Changes to binary invocation should consider macOS/Windows/Linux
+- **Adversarial Review**: The plan's pre-mortem names a real alternative root cause, how the fix could be inert, and its blast radius; add one if missing
+- **Falsifiable tests**: Each planned test would fail if the change it guards were reverted — a test that passes either way is a warning
 
 Flag as warning: missing steps. Add them as suggestions in the verification summary.
 
@@ -72,7 +74,7 @@ After verification, edit the plan file directly:
 ### 1. Add verification stamp at the very top of the file
 
 ```markdown
-<!-- Verified by /verify-plan on YYYY-MM-DD -->
+<!-- Verified by /verify-plan on YYYY-MM-DD @ <short sha of HEAD> -->
 <!-- Verification result: [PASS / PASS WITH CORRECTIONS / NEEDS REVISION] -->
 ```
 

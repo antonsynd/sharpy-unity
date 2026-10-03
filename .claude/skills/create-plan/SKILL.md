@@ -4,7 +4,7 @@ description: Create an implementation plan from GitHub issues or a description
 argument-hint: "<issue numbers or description>"
 ---
 
-Create a detailed implementation plan with context, rationale, and tasks. Saves the plan as a markdown file in `~/.claude/plans/`.
+Create a detailed implementation plan with context, rationale, and tasks. Saves the plan as a markdown file in `.claude/plans/` (repo-local, gitignored).
 
 **Usage:**
 - `/create-plan 5,6,7` — read GitHub issues and create a plan
@@ -42,7 +42,7 @@ Before writing the plan:
 
 ### 3. Generate the plan
 
-Write a plan file to `~/.claude/plans/` with a random name (use `openssl rand -hex 3` for a short hex suffix, e.g., `plan-a1b2c3.md`).
+Run `mkdir -p .claude/plans`, then write a plan file to `.claude/plans/` with a random name (use `openssl rand -hex 3` for a short hex suffix, e.g., `plan-a1b2c3.md`).
 
 The plan must follow this structure:
 
@@ -56,6 +56,13 @@ The plan must follow this structure:
 ## Current State
 
 <What exists today, what's broken or missing>
+
+## Adversarial Review (pre-mortem)
+
+- **Alternative root cause:** <what else explains the symptom; the check that tells them apart>
+- **How the fix could be inert:** <a fallback path one call later? the same decision duplicated elsewhere (e.g. menu item vs. postprocessor)?>
+- **Blast radius:** <which editor flows, settings, platforms (macOS/Windows/Linux), or Unity versions this touches>
+- **Toolchain coupling:** <does this depend on sharpyc behavior at the pinned `SharpyToolchain.Version`, or need an `update-toolchain` bump?>
 
 ## Design Decisions
 
@@ -85,7 +92,7 @@ The plan must follow this structure:
 
 ## Testing Strategy
 
-- <Unity Test Runner tests needed>
+- <Unity Test Runner tests needed — each must fail when the code it guards is broken (mutation step in /implement-plan)>
 - <Edge cases to cover>
 - <Manual testing steps in Unity Editor>
 
@@ -101,6 +108,7 @@ The plan must follow this structure:
 - Enough context for an engineer (or Claude) to implement unambiguously
 - Incremental commits — each task is independently committable
 - GitHub issues referenced and mapped to closing tasks
+- The Adversarial Review is filled in, not boilerplate — a pre-mortem that names no alternative is a smell
 
 ### 4. Report
 

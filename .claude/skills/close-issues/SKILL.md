@@ -8,14 +8,14 @@ Close GitHub issues after verifying their implementation is complete. Accepts ei
 
 **Usage:**
 - `/close-issues 5,6` — verify and close specific issues
-- `/close-issues plans/my-plan.md` — find and close issues referenced in a plan
+- `/close-issues .claude/plans/my-plan.md` — find and close issues referenced in a plan
 
 ## Argument Handling
 
 Parse `$ARGUMENTS` to determine input mode:
 
 - **Comma-separated numbers** (e.g., `5,6`): treat as explicit issue list
-- **File path** (e.g., `plans/foo.md`): read the file and extract issue numbers from `#NNN` references
+- **File path** (e.g., `.claude/plans/foo.md`): read the file and extract issue numbers from `#NNN` references
 - **Empty**: ask the user which issues to close
 
 ## Steps
@@ -78,7 +78,15 @@ For NOT FOUND issues:
 - Do **not** close
 - Report to the user
 
-### 6. Report
+### 6. Update plan file (if applicable)
+
+If a plan file was provided:
+- Add a comment at the bottom of the plan noting which issues were closed and when:
+  ```markdown
+  <!-- Issues closed by /close-issues on YYYY-MM-DD: #5, #6 -->
+  ```
+
+### 7. Report
 
 Present a summary table:
 

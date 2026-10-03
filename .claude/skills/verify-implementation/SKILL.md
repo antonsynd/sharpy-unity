@@ -10,9 +10,9 @@ Verify that a plan has been fully and correctly implemented. Reads the plan, che
 
 If `$ARGUMENTS` is non-empty, use it as the path to the plan file.
 
-If `$ARGUMENTS` is empty, find the most recently modified `.md` file in `~/.claude/plans/`:
+Plans live in `.claude/plans/` (repo-local, gitignored); plans created before 2026-10-03 remain in `$HOME/.claude/plans/`. If `$ARGUMENTS` is empty, do **not** pick silently — list the three newest across both directories and ask which to verify:
 ```bash
-ls -t ~/.claude/plans/*.md 2>/dev/null | head -1
+ls -t .claude/plans/*.md "$HOME"/.claude/plans/*.md 2>/dev/null | head -3
 ```
 
 If no plan file is found, ask the user to provide the plan path explicitly.
@@ -29,6 +29,8 @@ Read the plan file completely before proceeding.
   - If present and **NEEDS REVISION**: warn and note in final report
   - If **PASS** or **PASS WITH CORRECTIONS**: proceed normally
 - Check for implementation evidence via `git log --oneline`
+- Record the plan's **base sha** — the commit it was verified against, or the commit before its first implementation commit. Every scope check below uses `<base>..HEAD`, never `mainline...HEAD`.
+- Run `git status --short` and REPORT any uncommitted changes — do **not** stash, restore, reset, or clean; the tree may hold a peer's work
 
 ### 2. Identify the plan's scope
 
@@ -105,6 +107,7 @@ For each changed file:
 - Check if test stubs exist in `Tests/Editor/` for new functionality
 - Verify test assembly references are correct
 - Flag any testable logic that has no corresponding test
+- **Tests must be falsifiable**: for each new test, check the commit body records its mutation step (guarded code broken → red, restored → green). Where it is missing, do it: `cp` the production file, break the guarded behavior, run the test (Unity Test Runner) — it must fail — then restore from the copy. If no Test Runner is available, read the assertion against the broken code and say so. A test that cannot fail when its subject is broken is a finding, not coverage; an absence assertion needs a positive control.
 
 ## Remediation Phase
 
@@ -123,23 +126,24 @@ Address every issue found:
 ### Remediation Rules
 
 1. **Fix in priority order**: missing implementations > convention violations > missing tests > formatting
-2. **Stage specific files**: never use `git add -A` or `git add .`
+2. **Stage specific files** by explicit pathspec and check `git diff --cached --stat`: never use `git add -A` or `git add .`, and never `git checkout`/`restore`/`stash`/`reset`/`clean` to tidy the tree
 3. **Incremental commits**: group related fixes into logical commits:
    - `fix: complete missing implementation for [plan step X]`
    - `fix: correct compiler interface assumptions`
    - `chore: fix convention violations from plan implementation`
    - `test: add test stubs for [feature]`
-4. **Include co-author**: all commits must include `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
+4. **Commit trailers**: use the trailer(s) the harness provides for this session; never hard-code a model name
 
 ## Final Verification
 
 After all fixes are committed:
 
-1. Read every `.cs` file that was changed to verify correctness
-2. Verify assembly definitions are consistent (references, platform constraints)
-3. Check `package.json` is valid JSON
-4. `git diff mainline...HEAD --stat` — summarize all changes
-5. Verify no files were accidentally deleted or left empty
+1. `python3 -m build_tools smoke-compile` and `python3 -m build_tools format --check` — must pass
+2. Read every `.cs` file that was changed to verify correctness
+3. Verify assembly definitions are consistent (references, platform constraints)
+4. Check `package.json` is valid JSON
+5. `git diff <base>...HEAD --stat` — summarize all changes
+6. Verify no files were accidentally deleted or left empty
 
 If issues persist after 3 remediation loops, report them as unresolved.
 
@@ -151,7 +155,7 @@ Present the verification report to the user:
 ## Implementation Verification Report
 
 **Plan:** [plan file path]
-**Branch:** [current branch]
+**Branch:** [current branch] · **Scope:** [base sha]..[HEAD sha]
 **Verified on:** YYYY-MM-DD
 
 ### Completeness
@@ -187,5 +191,5 @@ Present the verification report to the user:
 
 ### Files Changed (total, including plan implementation + fixes)
 
-(output of `git diff mainline...HEAD --stat`)
+(output of `git diff <base>...HEAD --stat`)
 ```

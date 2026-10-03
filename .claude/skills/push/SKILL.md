@@ -31,6 +31,20 @@ Run these in parallel:
 - If on `mainline` branch with force-push, refuse and explain the risk
 - If no unpushed commits, report "Already up to date" and stop
 
+### 2.5. Pre-push gates
+
+Catch what CI would fail on **before** pushing. Pick the gates from the files the outgoing commits touch (`git diff --name-only @{u}..HEAD`, or `origin/mainline..HEAD` when there is no upstream):
+
+| Commits touch | Run |
+|---------------|-----|
+| any `.cs` or `.asmdef` file, or `Plugins/` | `python3 -m build_tools smoke-compile` (CI's license-free `smoke` job — compiles every asmdef against Unity's DLLs; needs a local Unity editor install or `--unity-path`) |
+| any `.cs` file | `python3 -m build_tools format --check` — whole repo, not just the files you touched: a file someone else created slips through per-file formatting |
+| `package.json` | `python3 -c "import json; json.load(open('package.json'))"` (CI's `validate` job) |
+| `.github/workflows/*.yml` | `python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" .github/workflows/*.yml` |
+
+- If a gate fails, stop: fix it (for formatting run `python3 -m build_tools format`), commit the fix with `/commit`, and re-run the gate.
+- If smoke-compile cannot find a Unity install, say so and ask whether to push anyway — never report it as passed.
+
 ### 3. Push
 
 ```bash

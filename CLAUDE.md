@@ -80,6 +80,14 @@ build_tools/                 # Python CLI: DLL/compiler bundling, smoke-compile,
 - Namespace: `Sharpy.Unity.Editor` for editor code, `Sharpy.Unity.Runtime` for runtime code
 - Unity minimum version: 2022.3 LTS
 
+## Operational Contracts
+
+- **Parallel agents share one working tree.** Never run `git checkout` / `restore` / `clean` / `stash` / `reset` / `rm` on repo paths to tidy up — REPORT `git status` instead. Stage by explicit per-file pathspec (never `git add -A`/`.`) and check `git diff --cached --stat` before committing. Spell these prohibitions out in agent prompts; "read-only" alone is not enough.
+- **Plans live in `.claude/plans/`** (repo-local, gitignored): `/create-plan` writes there and `/verify-plan`, `/implement-plan`, `/verify-implementation` read there. Plans created before 2026-10-03 remain in `~/.claude/plans/`; pass the path explicitly for those.
+- **Tests are falsifiable** — every new test is mutation-checked: break the code it guards → red, restore (from a `cp` copy, never git) → green, both recorded in the commit body. A test that passes either way is a finding, not coverage; absence assertions need a positive control.
+- **Commit trailers** come from the harness for the session — never hard-code a model name in skills or messages.
+- Use `/commit` and `/push`; `/push` runs the pre-push gates (smoke-compile, format check, manifest/workflow validation) that CI enforces.
+
 ## Build Tools
 
 ```bash
