@@ -114,8 +114,34 @@ namespace Sharpy.Unity.Editor.Tests
             StringAssert.Contains("Assets/Scripts/hero.spy", warnings[0]);
         }
 
-        // sharpyc HEAD stages Assets/Scripts/Core/greeting.spy as
+        [Test]
+        public void GeneratedRelativePaths_SameClassInOneFolder_BothKeepModuleNames_Warn()
+        {
+            var warnings = new List<string>();
+
+            var paths = SharpyGeneratedFolderManager.GeneratedRelativePaths(
+                new[] { "Assets/Scripts/a.spy", "Assets/Scripts/b.spy", "Assets/Other/c.spy" },
+                new Dictionary<string, string>
+                {
+                    ["Assets/Scripts/a.spy"] = "Player",
+                    ["Assets/Scripts/b.spy"] = "Player",
+                    ["Assets/Other/c.spy"] = "Player",
+                },
+                warnings);
+
+            Assert.AreEqual("Scripts/a.cs", paths["Assets/Scripts/a.spy"]);
+            Assert.AreEqual("Scripts/b.cs", paths["Assets/Scripts/b.spy"]);
+            Assert.AreEqual("Other/Player.cs", paths["Assets/Other/c.spy"]);
+            Assert.AreEqual(2, warnings.Count);
+        }
+
+        // With <SourceRoot> honoured, sharpyc stages Assets/Scripts/Core/greeting.spy
+        // as <emit>/Scripts/Core/greeting.cs; without it (0.21.0+4a6228e87), as
         // <emit>/Assets/Scripts/Core/greeting.cs.
+        [TestCase("Scripts/Core/greeting.cs", "Assets/Scripts/Core/greeting.spy")]
+        [TestCase("Scripts/Ui/greeting.cs", "Assets/Scripts/Ui/greeting.spy")]
+        [TestCase("top.cs", "Assets/top.spy")]
+        [TestCase("Scripts\\Core\\greeting.cs", "Assets/Scripts/Core/greeting.spy")]
         [TestCase("Assets/Scripts/Core/greeting.cs", "Assets/Scripts/Core/greeting.spy")]
         [TestCase("Assets/Scripts/Ui/greeting.cs", "Assets/Scripts/Ui/greeting.spy")]
         [TestCase("Assets/My Scripts/smoke behaviour.cs", "Assets/My Scripts/smoke behaviour.spy")]

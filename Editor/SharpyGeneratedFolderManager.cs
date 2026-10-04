@@ -96,8 +96,9 @@ namespace Sharpy.Unity.Editor
         /// <summary>
         /// The generated path of every .spy: named after its class when
         /// <paramref name="scriptClasses"/> has one, otherwise after the module.
-        /// A class name that would take another script's path (file names
-        /// compare case-insensitively) keeps the module name, with a warning.
+        /// A class name that would take another script's path, or that another
+        /// .spy in the same folder also uses (file names compare
+        /// case-insensitively), keeps the module name, with a warning.
         /// </summary>
         internal static Dictionary<string, string> GeneratedRelativePaths(
             IEnumerable<string> spyAssets, IDictionary<string, string> scriptClasses, List<string> warnings)
@@ -119,6 +120,25 @@ namespace Sharpy.Unity.Editor
                 }
             }
 
+            // Class-named paths claimed by more than one .spy go to none of them.
+            var claims = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (string spy in sorted)
+            {
+                if (scriptClasses.TryGetValue(spy, out string scriptClass))
+                {
+                    string path = SpyAssetToGeneratedRelative(spy, scriptClass);
+
+                    if (!claims.TryGetValue(path, out List<string> claimants))
+                    {
+                        claimants = new List<string>();
+                        claims[path] = claimants;
+                    }
+
+                    claimants.Add(spy);
+                }
+            }
+
             foreach (string spy in sorted)
             {
                 if (!scriptClasses.TryGetValue(spy, out string scriptClass))
@@ -127,17 +147,20 @@ namespace Sharpy.Unity.Editor
                 }
 
                 string path = SpyAssetToGeneratedRelative(spy, scriptClass);
+                List<string> claimants = claims[path];
+                string other = taken.TryGetValue(path, out string module) ? module
+                    : claimants.Count > 1 ? claimants.Find(c => c != spy)
+                    : null;
 
-                if (taken.TryGetValue(path, out string other))
+                if (other != null)
                 {
                     warnings.Add(
-                        $"[Sharpy] {spy}: its script cannot be named {scriptClass}.cs, which {other} already uses, "
+                        $"[Sharpy] {spy}: its script cannot be named {scriptClass}.cs, which {other} also needs, "
                         + $"so the {scriptClass} component cannot be added. Rename the class or one of the files.");
                     path = SpyAssetToGeneratedRelative(spy);
                 }
 
                 result[spy] = path;
-                taken[path] = spy;
             }
 
             return result;
@@ -155,13 +178,22 @@ namespace Sharpy.Unity.Editor
 
         /// <summary>
         /// The .spy asset a file in sharpyc's --emit-cs-to folder came from.
-        /// sharpyc mirrors each source's path relative to the .spyproj's folder
-        /// (Library/Sharpy), dropping the leading "../" segments, so
-        /// Assets/Scripts/Core/greeting.spy is staged as Assets/Scripts/Core/greeting.cs.
+        /// sharpyc mirrors each source's path relative to the spyproj's
+        /// &lt;SourceRoot&gt; (../../Assets), staging Assets/Scripts/Core/greeting.spy
+        /// as Scripts/Core/greeting.cs. A sharpyc that ignores SourceRoot mirrors
+        /// it relative to the .spyproj's folder with the leading "../" dropped,
+        /// as Assets/Scripts/Core/greeting.cs; both forms are accepted.
         /// </summary>
         internal static string StagedToSpyAsset(string stagedRelativePath)
         {
-            return Path.ChangeExtension(stagedRelativePath.Replace('\\', '/'), ".spy");
+            string path = stagedRelativePath.Replace('\\', '/');
+
+            if (!path.StartsWith(AssetsPrefix))
+            {
+                path = AssetsPrefix + path;
+            }
+
+            return Path.ChangeExtension(path, ".spy");
         }
 
         public static void CleanEmptyDirectories()
