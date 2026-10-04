@@ -106,5 +106,48 @@ namespace Sharpy.Unity.Editor.Tests
 
             CollectionAssert.IsEmpty(SharpyProjectCompiler.StdlibWarnings(generated, true));
         }
+
+        [Test]
+        public void Decide_Force_AlwaysCompiles()
+        {
+            Assert.AreEqual(
+                SharpyProjectCompiler.CompileDecision.Compile,
+                SharpyProjectCompiler.Decide(true, true, true, "fp", "fp"));
+        }
+
+        [Test]
+        public void Decide_UpToDate_Skips()
+        {
+            Assert.AreEqual(
+                SharpyProjectCompiler.CompileDecision.UpToDate,
+                SharpyProjectCompiler.Decide(false, true, false, "fp", ""));
+        }
+
+        [Test]
+        public void Decide_FocusOnInputsThatFailed_Skips()
+        {
+            Assert.AreEqual(
+                SharpyProjectCompiler.CompileDecision.KnownFailure,
+                SharpyProjectCompiler.Decide(false, false, true, "fp", "fp"));
+        }
+
+        [Test]
+        public void Decide_FocusOnChangedInputs_Compiles()
+        {
+            Assert.AreEqual(
+                SharpyProjectCompiler.CompileDecision.Compile,
+                SharpyProjectCompiler.Decide(false, false, true, "fp2", "fp"));
+            Assert.AreEqual(
+                SharpyProjectCompiler.CompileDecision.Compile,
+                SharpyProjectCompiler.Decide(false, false, true, "fp", ""));
+        }
+
+        [Test]
+        public void Decide_SaveOnInputsThatFailed_Compiles()
+        {
+            Assert.AreEqual(
+                SharpyProjectCompiler.CompileDecision.Compile,
+                SharpyProjectCompiler.Decide(false, false, false, "fp", "fp"));
+        }
     }
 }

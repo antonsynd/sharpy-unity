@@ -42,6 +42,13 @@ namespace Sharpy.Unity.Editor
         /// </summary>
         public static bool Compile(bool force = false)
         {
+            return Compile(force, false);
+        }
+
+        // skipKnownFailure: the load/focus path, which must not re-run (and
+        // re-log) a build that already failed on exactly these inputs.
+        private static bool Compile(bool force, bool skipKnownFailure)
+        {
             // The Refresh at the end imports the generated scripts, which runs
             // the asset postprocessor again inside this call. A .spy picked up
             // by that import is compiled once this pass is done.
@@ -61,7 +68,7 @@ namespace Sharpy.Unity.Editor
                 do
                 {
                     compileRequested = false;
-                    result = CompileAndSync(force);
+                    result = CompileAndSync(force, skipKnownFailure);
                 }
                 while (compileRequested && ++passes < 3);
 
@@ -74,7 +81,40 @@ namespace Sharpy.Unity.Editor
             }
         }
 
-        private static bool CompileAndSync(bool force)
+        private const string LastFailedFingerprintKey = "Sharpy.LastFailedFingerprint";
+
+        internal enum CompileDecision
+        {
+            Compile,
+            UpToDate,
+            KnownFailure,
+        }
+
+        /// <summary>
+        /// Whether to run sharpyc. <paramref name="force"/> always compiles. The
+        /// load/focus path (<paramref name="skipKnownFailure"/>) also skips
+        /// inputs whose build already failed this session; any change to them
+        /// gives a new fingerprint and so a new attempt.
+        /// </summary>
+        internal static CompileDecision Decide(
+            bool force, bool upToDate, bool skipKnownFailure, string fingerprint, string lastFailedFingerprint)
+        {
+            if (force)
+            {
+                return CompileDecision.Compile;
+            }
+
+            if (upToDate)
+            {
+                return CompileDecision.UpToDate;
+            }
+
+            return skipKnownFailure && fingerprint == lastFailedFingerprint
+                ? CompileDecision.KnownFailure
+                : CompileDecision.Compile;
+        }
+
+        private static bool CompileAndSync(bool force, bool skipKnownFailure)
         {
             SharpySettings.RefreshFromDiskIfChanged();
             var settings = SharpySettings.instance;
@@ -103,20 +143,34 @@ namespace Sharpy.Unity.Editor
             string fingerprint = SharpyFingerprint.Compute(
                 projectText, CompilerVersion(settings), SyncSettings(settings), HashSources(root, spyAssets));
 
-            if (!force && SharpyFingerprint.IsUpToDate(
-                    File.Exists(fingerprintPath) ? File.ReadAllText(fingerprintPath) : null,
-                    fingerprint,
-                    path => File.Exists(generatedDir + "/" + path)))
+            bool upToDate = !force && SharpyFingerprint.IsUpToDate(
+                File.Exists(fingerprintPath) ? File.ReadAllText(fingerprintPath) : null,
+                fingerprint,
+                path => File.Exists(generatedDir + "/" + path));
+
+            switch (Decide(force, upToDate, skipKnownFailure, fingerprint, SessionState.GetString(LastFailedFingerprintKey, "")))
             {
-                return true;
+                case CompileDecision.UpToDate:
+                    return true;
+                case CompileDecision.KnownFailure:
+                    return false;
             }
 
             var staged = new Dictionary<string, string>();
 
-            if (NeedsCompiler(spyAssets) && !BuildProject(root, settings, projectText, spyAssets, staged))
+            if (NeedsCompiler(spyAssets) && !BuildProject(root, settings, projectText, spyAssets, staged, out bool rejected))
             {
+                // Only a verdict on the sources is remembered; a missing
+                // compiler or a timeout may be gone by the next focus.
+                if (rejected)
+                {
+                    SessionState.SetString(LastFailedFingerprintKey, fingerprint);
+                }
+
                 return false;
             }
+
+            SessionState.EraseString(LastFailedFingerprintKey);
 
             var warnings = new List<string>();
             Dictionary<string, string> scriptClasses = SharpyScriptClasses.Find(staged, IsUnityObjectType, warnings);
@@ -182,8 +236,10 @@ namespace Sharpy.Unity.Editor
             SharpySettings settings,
             string projectText,
             ICollection<string> spyAssets,
-            Dictionary<string, string> staged)
+            Dictionary<string, string> staged,
+            out bool rejected)
         {
+            rejected = false;
             SharpyBinaryDownloader.EnsureVersionChecked();
             SharpyCompilerBridge.WarnOnNamespaceCollision(settings.RootNamespace);
 
@@ -217,6 +273,7 @@ namespace Sharpy.Unity.Editor
 
             if (!ShouldSync(result.ExitCode))
             {
+                rejected = result.ExitCode > 0;
                 return false;
             }
 
@@ -236,6 +293,7 @@ namespace Sharpy.Unity.Editor
                         $"[Sharpy] sharpyc wrote \"{stagedPath}\", which does not mirror a .spy under Assets/. "
                         + "This package needs a sharpyc whose `project --emit-cs-to` mirrors the source tree "
                         + $"(newer than 0.21.0). Generated files in {settings.GeneratedOutputPath} were left as they were.");
+                    rejected = true;
                     return false;
                 }
 
@@ -358,7 +416,7 @@ namespace Sharpy.Unity.Editor
                 return;
             }
 
-            Compile(force: false);
+            Compile(force: false, skipKnownFailure: true);
         }
 
         private const string CompilerVersionKeyPrefix = "Sharpy.CompilerVersion:";
