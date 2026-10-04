@@ -225,7 +225,7 @@ namespace Sharpy.Unity.Editor.Tests
         public void UnmappedStagingMessage_FlatLayout_NamesTheCompilerVersion()
         {
             StringAssert.Contains(
-                "newer than 0.21.0",
+                "0.22.0 or newer",
                 SharpyProjectCompiler.UnmappedStagingMessage(
                     "greeting.cs", new[] { "Assets/Scripts/Core/greeting.spy" }, "Assets/SharpyGenerated"));
         }
@@ -237,14 +237,14 @@ namespace Sharpy.Unity.Editor.Tests
                 "Scripts/Ui/stray.cs", new[] { "Assets/Scripts/Core/greeting.spy" }, "Assets/SharpyGenerated");
 
             StringAssert.Contains("Scripts/Ui/stray.cs", message);
-            StringAssert.DoesNotContain("0.21.0", message);
+            StringAssert.DoesNotContain("0.22.0", message);
         }
 
         [Test]
         public void UnmappedStagingMessage_TopLevelSourcesOnly_NoVersionClaim()
         {
             StringAssert.DoesNotContain(
-                "0.21.0",
+                "0.22.0",
                 SharpyProjectCompiler.UnmappedStagingMessage("stray.cs", new[] { "Assets/top.spy" }, "Assets/SharpyGenerated"));
         }
 

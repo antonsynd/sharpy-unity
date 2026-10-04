@@ -7,7 +7,7 @@ Unity Editor plugin that makes `.spy` files work seamlessly inside Unity project
 ## Requirements
 
 - Unity 2022.3 LTS or later (developed and tested on Unity 6000.3; 2022.3 is covered only by the CI smoke compile)
-- Sharpy compiler (`sharpyc`) — downloaded on demand (first-launch prompt, or **Assets > Sharpy > Download Compiler**). Project compilation needs a sharpy release newer than 0.21.0; with 0.21.0 the compile stops with an error that says so.
+- Sharpy compiler (`sharpyc`) — downloaded on demand (first-launch prompt, or **Assets > Sharpy > Download Compiler**). Project compilation needs sharpy 0.22.0 or newer (the pinned version); with an older **Custom Compiler Path** the compile stops with an error that says so.
 
 ## Installation
 
@@ -35,7 +35,7 @@ A `.spy` file whose only MonoBehaviour or ScriptableObject is `Player` generates
 
 ### Imports and namespaces
 
-Imports are spelled from `Assets/`: `Assets/Scripts/Core/greeting.spy` is `Scripts.Core.greeting`. Prefer relative imports (`from ..Core.greeting import greet`) between your own folders; they keep working when a folder moves. Each `.spy` becomes the namespace *Root Namespace* + its folder path + its module name, e.g. `SharpyScripts.Scripts.Core.Greeting`. Rooting at `Assets/` needs the sharpy release after 0.21.0; older compilers root at the common folder of all `.spy` files.
+Imports are spelled from `Assets/`: `Assets/Scripts/Core/greeting.spy` is `Scripts.Core.greeting`. Prefer relative imports (`from ..Core.greeting import greet`) between your own folders; they keep working when a folder moves. Each `.spy` becomes the namespace *Root Namespace* + its folder path + its module name, e.g. `SharpyScripts.Scripts.Core.Greeting`. Rooting at `Assets/` needs sharpy 0.22.0 or newer; older compilers root at the common folder of all `.spy` files.
 
 ### Unity APIs
 

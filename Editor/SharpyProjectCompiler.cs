@@ -386,7 +386,7 @@ namespace Sharpy.Unity.Editor
         /// <summary>
         /// The error for a staged .cs that maps to no .spy. Only a flat layout
         /// (a staged file at the top while sources sit in folders) is the
-        /// pinned 0.21.0's way of writing; anything else is not a version problem.
+        /// 0.21.0's way of writing; anything else is not a version problem.
         /// </summary>
         internal static string UnmappedStagingMessage(string stagedPath, IEnumerable<string> spyAssets, string generatedOutputPath)
         {
@@ -403,7 +403,7 @@ namespace Sharpy.Unity.Editor
             {
                 return $"[Sharpy] sharpyc wrote \"{stagedPath}\" at the top of its output instead of mirroring the "
                     + "source folders. This package needs a sharpyc whose `project --emit-cs-to` mirrors the source "
-                    + "tree (newer than 0.21.0). " + unchanged;
+                    + "tree (0.22.0 or newer). " + unchanged;
             }
 
             return $"[Sharpy] sharpyc wrote \"{stagedPath}\", which matches no .spy under Assets/. " + unchanged;

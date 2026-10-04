@@ -35,7 +35,7 @@ Tools~/build_tools/          # Python CLI (in a `~` folder so Unity skips it): D
 2. **Whole-project compilation** — every `.spy` under `Assets/` is one `sharpyc project` build (per-file emit duplicated imported modules and disagreed on namespaces). All triggers (postprocessor, menu, settings button, focus, `SharpyBatch`) go through `SharpyProjectCompiler.Compile()`
 3. **Stage, then sync** — sharpyc writes to `Library/Sharpy/emit`; only exit code 0 syncs into the generated folder, so a failed build never touches `Assets/`
 4. **Generated files in `Assets/SharpyGenerated/`** — mirrors source structure, gitignored; MonoBehaviour/ScriptableObject scripts are named after their class, and every `.meta` GUID is derived from the `.spy` GUID (`SharpyGeneratedMeta`) so scene references survive clean regenerates and clones
-5. **Imports rooted at `Assets/`** — the spyproj sets `<SourceRoot>../../Assets</SourceRoot>` (honoured by sharpy releases after 0.21.0); relative imports are recommended
+5. **Imports rooted at `Assets/`** — the spyproj sets `<SourceRoot>../../Assets</SourceRoot>` (honoured from sharpy 0.22.0); relative imports are recommended
 6. **References derived, not configured** — `SharpyReferenceProvider` takes Assembly-CSharp's references minus what sharpyc cannot load (sharpy#2182); nothing machine-specific is serialized
 7. **Sharpy.Core.dll as a plugin** — netstandard2.1 build, runtime dependency
 8. **sharpyc downloaded, not bundled** — `SharpyBinaryDownloader` fetches the self-contained per-RID sharpyc from the sharpy GitHub release pinned in `SharpyToolchain.Version`, installing it under the project's `Library/` — never inside the package (the archive holds ~350 DLLs Unity would try to import)
@@ -137,7 +137,7 @@ sharpyc project Library/Sharpy/unity.spyproj --emit-cs-to Library/Sharpy/emit   
 sharpyc --version                                                              # Fingerprint, settings page
 ```
 
-Exit codes: 0 = success (the only one that syncs), 1 = Sharpy errors, 2 = the generated C# does not compile (may leave files in staging; it is cleared before each run), 3 = internal compiler error. `project` has no JSON diagnostics: they are rendered rustc-style (`error[SPY0200]: ...` then `--> /abs/path.spy:line:col`), errors on stderr after `Build FAILED.`, warnings on stdout on success and failure. `--emit-cs-to` must mirror the source tree and `<SourceRoot>` must be honoured — both need a sharpy release newer than 0.21.0.
+Exit codes: 0 = success (the only one that syncs), 1 = Sharpy errors, 2 = the generated C# does not compile (may leave files in staging; it is cleared before each run), 3 = internal compiler error. `project` has no JSON diagnostics: they are rendered rustc-style (`error[SPY0200]: ...` then `--> /abs/path.spy:line:col`), errors on stderr after `Build FAILED.`, warnings on stdout on success and failure. `--emit-cs-to` must mirror the source tree and `<SourceRoot>` must be honoured — both need sharpy 0.22.0 or newer.
 
 ## Testing
 

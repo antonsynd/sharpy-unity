@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Recompile Selected** is removed; a single file cannot be compiled on its own in project mode.
   - `build_tools/` moved to `Tools~/build_tools/`; run it as `PYTHONPATH=Tools~ python3 -m build_tools ...` (#6).
   - **Generated Output Path** must be a dedicated, Sharpy-owned folder inside `Assets/` (marked by a `.gitignore`); a non-empty folder Sharpy does not own is refused.
-  - Imports and namespaces are rooted at `Assets/` (`<SourceRoot>`; needs the sharpy release after 0.21.0), so namespaces of existing generated code change; prefer relative imports.
+  - Imports and namespaces are rooted at `Assets/` (`<SourceRoot>`, sharpy 0.22.0+), so namespaces of existing generated code change; prefer relative imports.
   - A Generated Output Path changed before upgrading is not retired automatically; delete the old folder's generated files by hand.
 - Every `.spy` under `Assets/` is compiled as one `sharpyc project` build, staged in `Library/Sharpy/` and synced into the generated folder only on success (#4).
 - All compile triggers (import, Recompile All, settings button, editor focus, batch) go through `SharpyProjectCompiler`.
@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Compiler timeout now bounds a whole-project compile; 0 or less means the 30 s default.
 - **Clean Generated** deletes only generated `.cs`/`.meta` files and empty folders, plus `Library/Sharpy/`.
 - A missing compiler or a timeout is not retried on every editor focus until the compiler or timeout changes.
+- Sharpy toolchain: 0.21.0 -> 0.22.0 (2026-10-04)
+  - Sharpy.Core.dll: updated
+  - Editor/SharpyStdlibModules.cs: regenerated
 - Sharpy toolchain: 0.16.1 -> 0.21.0 (2026-10-03)
   - Microsoft.Bcl.AsyncInterfaces.dll: updated
   - Sharpy.Core.dll: updated

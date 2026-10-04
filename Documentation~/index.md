@@ -95,7 +95,7 @@ A relative import keeps working wherever the folder ends up under `Assets/`; an 
 
 Each `.spy` file becomes a namespace made of the **Root Namespace**, its folder path from `Assets/` and its module name: `Assets/Scripts/Core/greeting.spy` → `SharpyScripts.Scripts.Core.Greeting`. Module-level functions go into a static `<Module>Module` class in that namespace (`GreetingModule.Greet`). Folder names are made into valid identifiers (`Basic Setup` → `BasicSetup`, `0.1.0` → `_010`).
 
-The `<SourceRoot>` property that pins the root at `Assets/` is honoured from the sharpy release after 0.21.0. Older compilers root imports and namespaces at the longest common folder of all `.spy` files, which moves when you add a `.spy` in a new top-level folder; relative imports are unaffected.
+The `<SourceRoot>` property that pins the root at `Assets/` is honoured from sharpy 0.22.0. Older compilers root imports and namespaces at the longest common folder of all `.spy` files, which moves when you add a `.spy` in a new top-level folder; relative imports are unaffected.
 
 ### References
 
@@ -191,7 +191,7 @@ IL2CPP builds are unsupported with the stdlib installed:
 ## Requirements
 
 - Unity 2022.3 LTS or later. Developed and tested on Unity 6000.3; 2022.3 is checked only by the CI smoke compile.
-- A `sharpyc` newer than 0.21.0 for project compilation (its `--emit-cs-to` mirrors the source tree). The compiler is downloaded on demand into `Library/SharpyCompiler/<version>/<platform>/`, or set **Custom Compiler Path**.
+- `sharpyc` 0.22.0 or newer for project compilation (its `--emit-cs-to` mirrors the source tree). The compiler is downloaded on demand into `Library/SharpyCompiler/<version>/<platform>/`, or set **Custom Compiler Path**.
 
 ## Limitations
 
