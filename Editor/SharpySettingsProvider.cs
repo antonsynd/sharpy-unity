@@ -131,7 +131,9 @@ namespace Sharpy.Unity.Editor
 
             EditorGUILayout.PropertyField(
                 serializedSettings.FindProperty("additionalReferences"),
-                new GUIContent("Additional References"));
+                new GUIContent(
+                    "Additional References",
+                    "Extra assemblies (absolute or project-relative paths), passed to sharpyc as-is and never filtered. Use this for a package's API, e.g. Library/ScriptAssemblies/Unity.InputSystem.dll: package-built assemblies are not derived because sharpyc often cannot load them (sharpy#2182)."));
 
             EditorGUI.BeginChangeCheck();
 

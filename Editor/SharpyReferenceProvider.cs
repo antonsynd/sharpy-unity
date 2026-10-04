@@ -88,7 +88,8 @@ namespace Sharpy.Unity.Editor
             var editorDependent = EditorDependentAssemblyPaths();
             var usable = new List<string>();
 
-            foreach (string path in Collect())
+            foreach (string path in ExcludePackageScriptAssemblies(
+                Collect(), CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName))
             {
                 if (!editorDependent.Contains(path))
                 {
@@ -197,8 +198,8 @@ namespace Sharpy.Unity.Editor
         }
 
         /// <summary>
-        /// Removes the plugin's own assemblies, the project's script
-        /// assemblies, editor assemblies, Unity's BCL, and denylisted names; drops duplicates and
+        /// Removes the plugin's own assemblies, Assembly-CSharp itself, editor
+        /// assemblies, Unity's BCL, and denylisted names; drops duplicates and
         /// keeps order. Denylist entries match the file name with or without
         /// ".dll", ignoring case.
         /// </summary>
@@ -232,8 +233,11 @@ namespace Sharpy.Unity.Editor
                 // sharpyc brings its own Sharpy.Core; a second copy (and the
                 // plugin's Sharpy.Unity.* assemblies) would be ambiguous.
                 if (name.StartsWith("Sharpy.", StringComparison.OrdinalIgnoreCase)
-                    // The generated code compiles into Assembly-CSharp itself.
-                    || name.StartsWith("Assembly-CSharp", StringComparison.OrdinalIgnoreCase)
+                    // The generated code compiles into Assembly-CSharp itself;
+                    // Assembly-CSharp-firstpass (Plugins/, Standard Assets/) is
+                    // a normal dependency of it and stays.
+                    || string.Equals(name, "Assembly-CSharp", StringComparison.OrdinalIgnoreCase)
+                    || name.StartsWith("Assembly-CSharp-Editor", StringComparison.OrdinalIgnoreCase)
                     // Player code cannot use editor assemblies; they only come
                     // from the precompiled fallback, and UnityEditor.CoreModule
                     // crashes sharpyc ("Access is denied", sharpy#2182).
@@ -249,6 +253,75 @@ namespace Sharpy.Unity.Editor
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Drops script assemblies built from an asmdef under <c>Packages/</c>
+        /// (UnityEngine.UI, Unity.InputSystem, the Purchasing and Services
+        /// assemblies, ...). sharpyc cannot bind their UnityEngine.* references
+        /// outside Unity's Managed folder (sharpy#2182): with Unity's default
+        /// 6000.3 packages, UnityEngine.SpatialTracking,
+        /// UnityEngine.Purchasing.Codeless/.Stores,
+        /// Unity.Services.Core.Components and Unity.Analytics.DataPrivacy fail
+        /// with "Could not load file or assembly 'UnityEngine.CoreModule'" and
+        /// Unity.Multiplayer.Center.Common with SPY0909, so every compile after
+        /// Assembly-CSharp first exists would fail. Project asmdefs (under
+        /// Assets/) stay. Precompiled plugins have no asmdef and are not
+        /// touched. A package API is still usable by naming its DLL in
+        /// Additional References, which is not filtered.
+        /// </summary>
+        /// <param name="asmdefPathForAssemblyName">
+        /// CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName,
+        /// or null-returning for an assembly with no asmdef.
+        /// </param>
+        internal static List<string> ExcludePackageScriptAssemblies(
+            IEnumerable<string> paths,
+            Func<string, string> asmdefPathForAssemblyName)
+        {
+            var result = new List<string>();
+
+            foreach (string path in paths)
+            {
+                string asmdef = asmdefPathForAssemblyName(Path.GetFileNameWithoutExtension(path));
+
+                if (asmdef == null
+                    || !asmdef.Replace('\\', '/').StartsWith("Packages/", StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Add(path);
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// A hint for a failed compile whose output shows sharpyc could not
+        /// load a referenced assembly (sharpy#2182), or null. The failing
+        /// assembly is not named reliably (the message names the dependency it
+        /// could not resolve), so the hint says where to remove it.
+        /// </summary>
+        public static string HintFor(string compilerOutput)
+        {
+            if (string.IsNullOrEmpty(compilerOutput))
+            {
+                return null;
+            }
+
+            bool typeLoadFailure = compilerOutput.Contains("Unable to load one or more of the requested types");
+
+            // SPY0909 is any internal compiler error; only an assembly-load one is ours.
+            bool loadIce = compilerOutput.Contains("SPY0909")
+                && (compilerOutput.Contains("Could not load file or assembly")
+                    || compilerOutput.Contains("Could not load type"));
+
+            if (!typeLoadFailure && !loadIce)
+            {
+                return null;
+            }
+
+            return "[Sharpy] sharpyc could not load one of the referenced assemblies (sharpy#2182). "
+                + "If you added it under Project Settings > Sharpy > Additional References, remove it; "
+                + "if it is a derived reference, add its name to the Reference Denylist there.";
         }
 
         /// <summary>

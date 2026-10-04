@@ -54,16 +54,103 @@ namespace Sharpy.Unity.Editor.Tests
         }
 
         [Test]
-        public void Filter_SharpyAndAssemblyCSharp_Removed()
+        public void Filter_SharpyAndAssemblyCSharp_Removed_FirstpassKept()
         {
             var result = Filter(
                 "/Project/Packages/com.antonsynd.sharpy/Plugins/Sharpy.Core/Sharpy.Core.dll",
                 "/Project/Library/ScriptAssemblies/Sharpy.Unity.Runtime.dll",
                 "/Project/Library/ScriptAssemblies/Assembly-CSharp.dll",
+                "/Project/Library/ScriptAssemblies/Assembly-CSharp-Editor.dll",
+                "/Project/Library/ScriptAssemblies/Assembly-CSharp-Editor-firstpass.dll",
                 "/Project/Library/ScriptAssemblies/Assembly-CSharp-firstpass.dll",
                 Managed + "UnityEngine.CoreModule.dll");
 
-            CollectionAssert.AreEqual(new[] { Managed + "UnityEngine.CoreModule.dll" }, result);
+            CollectionAssert.AreEqual(
+                new[] { "/Project/Library/ScriptAssemblies/Assembly-CSharp-firstpass.dll", Managed + "UnityEngine.CoreModule.dll" },
+                result);
+        }
+
+        private const string ScriptAssemblies = "/Project/Library/ScriptAssemblies/";
+
+        // What CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName
+        // answers in a project with these asmdefs.
+        private static string AsmdefPathFor(string assemblyName)
+        {
+            switch (assemblyName)
+            {
+                case "UnityEngine.SpatialTracking":
+                    return "Packages/com.unity.xr.legacyinputhelpers/Runtime/UnityEngine.SpatialTracking.asmdef";
+                case "Unity.Multiplayer.Center.Common":
+                    return "Packages\\com.unity.multiplayer.center\\Common\\Unity.Multiplayer.Center.Common.asmdef";
+                case "Game.Core":
+                    return "Assets/Scripts/Core/Game.Core.asmdef";
+                case "MyPackagesHelper":
+                    return "Assets/Packages/MyPackagesHelper.asmdef";
+                default:
+                    return null;
+            }
+        }
+
+        [Test]
+        public void ExcludePackageScriptAssemblies_PackageAsmdefs_Removed()
+        {
+            var result = SharpyReferenceProvider.ExcludePackageScriptAssemblies(
+                new[]
+                {
+                    ScriptAssemblies + "UnityEngine.SpatialTracking.dll",
+                    ScriptAssemblies + "Game.Core.dll",
+                    ScriptAssemblies + "Unity.Multiplayer.Center.Common.dll",
+                },
+                AsmdefPathFor);
+
+            CollectionAssert.AreEqual(new[] { ScriptAssemblies + "Game.Core.dll" }, result);
+        }
+
+        [Test]
+        public void ExcludePackageScriptAssemblies_ProjectAndNonAsmdef_Unchanged()
+        {
+            var paths = new[]
+            {
+                Managed + "UnityEngine.CoreModule.dll",
+                ScriptAssemblies + "Game.Core.dll",
+                ScriptAssemblies + "MyPackagesHelper.dll",
+                ScriptAssemblies + "Assembly-CSharp-firstpass.dll",
+                "/Project/Library/PackageCache/com.unity.nuget.newtonsoft-json/Runtime/AOT/Newtonsoft.Json.dll",
+            };
+
+            CollectionAssert.AreEqual(paths, SharpyReferenceProvider.ExcludePackageScriptAssemblies(paths, AsmdefPathFor));
+        }
+
+        [Test]
+        public void HintFor_TypeLoadFailure_PointsAtReferenceSettings()
+        {
+            string hint = SharpyReferenceProvider.HintFor(
+                "Unexpected error: Unable to load one or more of the requested types.\n"
+                + "Could not load file or assembly 'UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'.");
+
+            Assert.IsNotNull(hint);
+            StringAssert.Contains("Additional References", hint);
+            StringAssert.Contains("Reference Denylist", hint);
+            StringAssert.Contains("sharpy#2182", hint);
+        }
+
+        [Test]
+        public void HintFor_AssemblyLoadIce_ReturnsHint()
+        {
+            Assert.IsNotNull(SharpyReferenceProvider.HintFor(
+                "error[SPY0909]: internal compiler error (FileNotFoundException): Could not load file or assembly "
+                + "'UnityEngine.UIElementsModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'."));
+        }
+
+        [Test]
+        public void HintFor_UnrelatedFailures_ReturnNull()
+        {
+            Assert.IsNull(SharpyReferenceProvider.HintFor(null));
+            Assert.IsNull(SharpyReferenceProvider.HintFor(""));
+            Assert.IsNull(SharpyReferenceProvider.HintFor(
+                "error[SPY0909]: internal compiler error (NullReferenceException): Object reference not set to an instance of an object."));
+            Assert.IsNull(SharpyReferenceProvider.HintFor(
+                "error[SPY0300]: cannot resolve import 'Core.greeting'\n  --> /p/Assets/x.spy:1:6"));
         }
 
         [Test]
