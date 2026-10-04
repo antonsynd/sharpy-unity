@@ -298,7 +298,13 @@ def unity_csc(managed):
 
 def compile_with_unity_csc(toolchain, managed, sources, defines, warnings_as_errors, out_dir):
     dotnet, csc, netstandard = toolchain
-    references = [netstandard] + sorted((managed / "UnityEngine").glob("*.dll")) \
+    # Unity adds the .NET Framework facades (mscorlib.dll, System.dll, ...,
+    # all type forwarders to netstandard) to every .NET Standard profile
+    # compile, so a module or plugin built against mscorlib still binds
+    # (otherwise CS0012).
+    netfx_shims = netstandard.parent.parent.parent / "compat" / "2.1.0" / "shims" / "netfx"
+    references = [netstandard] + sorted(netfx_shims.glob("*.dll")) \
+        + sorted((managed / "UnityEngine").glob("*.dll")) \
         + sorted((REPO_ROOT / "Plugins" / "Sharpy.Core").glob("*.dll"))
 
     args = [
