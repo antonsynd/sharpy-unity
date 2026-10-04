@@ -203,7 +203,7 @@ namespace Sharpy.Unity.Editor
 
             SessionState.EraseString(LastFailedFingerprintKey);
 
-            var warnings = new List<string>();
+            var warnings = MissingOutputWarnings(spyAssets, staged.Keys);
             Dictionary<string, string> scriptClasses = SharpyScriptClasses.Find(staged, IsUnityObjectType, warnings);
             Dictionary<string, string> paths = SharpyGeneratedFolderManager.GeneratedRelativePaths(
                 staged.Keys, scriptClasses, warnings);
@@ -306,7 +306,7 @@ namespace Sharpy.Unity.Editor
             }
 
             CompileResult result = SharpyCompilerBridge.CompileProject(projectFile, stagingDir, root);
-            var sources = new HashSet<string>(spyAssets, StringComparer.Ordinal);
+            Dictionary<string, string> sources = SourceStems(spyAssets);
 
             foreach (SharpyDiagnostic diagnostic in result.Diagnostics)
             {
@@ -333,14 +333,11 @@ namespace Sharpy.Unity.Editor
             foreach (string path in Directory.GetFiles(stagingDir, "*.cs", SearchOption.AllDirectories))
             {
                 string stagedPath = path.Substring(stagingDir.Length + 1).Replace('\\', '/');
-                string spyAsset = SharpyGeneratedFolderManager.StagedToSpyAsset(stagedPath);
+                string spyAsset = FindStagedSource(stagedPath, sources);
 
-                if (!sources.Contains(spyAsset))
+                if (spyAsset == null)
                 {
-                    Debug.LogError(
-                        $"[Sharpy] sharpyc wrote \"{stagedPath}\", which does not mirror a .spy under Assets/. "
-                        + "This package needs a sharpyc whose `project --emit-cs-to` mirrors the source tree "
-                        + $"(newer than 0.21.0). Generated files in {settings.GeneratedOutputPath} were left as they were.");
+                    Debug.LogError(UnmappedStagingMessage(stagedPath, spyAssets, settings.GeneratedOutputPath));
                     return false;
                 }
 
@@ -358,6 +355,96 @@ namespace Sharpy.Unity.Editor
         internal static string FailureHint(int exitCode, string stdout, string stderr)
         {
             return exitCode == 0 ? null : SharpyReferenceProvider.HintFor(stderr + "\n" + stdout);
+        }
+
+        // Folder names sharpyc's source glob skips (CrashBundleWriter.NonSourceSegments).
+        private static readonly string[] SkippedSegments = { "bin", "obj", ".sharpy-crash" };
+
+        /// <summary>
+        /// .spy assets by path without extension, which is how a staged .cs
+        /// names its source: Greeting.SPY is staged as Greeting.cs, like greeting.spy.
+        /// </summary>
+        internal static Dictionary<string, string> SourceStems(IEnumerable<string> spyAssets)
+        {
+            var stems = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            foreach (string spy in spyAssets)
+            {
+                stems[Path.ChangeExtension(spy, null)] = spy;
+            }
+
+            return stems;
+        }
+
+        /// <summary>The .spy a staged .cs came from, or null.</summary>
+        internal static string FindStagedSource(string stagedRelativePath, Dictionary<string, string> sourceStems)
+        {
+            string stem = Path.ChangeExtension(SharpyGeneratedFolderManager.StagedToSpyAsset(stagedRelativePath), null);
+            return sourceStems.TryGetValue(stem, out string spy) ? spy : null;
+        }
+
+        /// <summary>
+        /// The error for a staged .cs that maps to no .spy. Only a flat layout
+        /// (a staged file at the top while sources sit in folders) is the
+        /// pinned 0.21.0's way of writing; anything else is not a version problem.
+        /// </summary>
+        internal static string UnmappedStagingMessage(string stagedPath, IEnumerable<string> spyAssets, string generatedOutputPath)
+        {
+            bool sourcesInFolders = false;
+
+            foreach (string spy in spyAssets)
+            {
+                sourcesInFolders |= spy.Substring("Assets/".Length).IndexOf('/') >= 0;
+            }
+
+            string unchanged = $"Generated files in {generatedOutputPath} were left as they were.";
+
+            if (stagedPath.IndexOf('/') < 0 && sourcesInFolders)
+            {
+                return $"[Sharpy] sharpyc wrote \"{stagedPath}\" at the top of its output instead of mirroring the "
+                    + "source folders. This package needs a sharpyc whose `project --emit-cs-to` mirrors the source "
+                    + "tree (newer than 0.21.0). " + unchanged;
+            }
+
+            return $"[Sharpy] sharpyc wrote \"{stagedPath}\", which matches no .spy under Assets/. " + unchanged;
+        }
+
+        /// <summary>
+        /// One warning per .spy that a successful build produced no C# for.
+        /// sharpyc silently skips sources under a folder named bin, obj or
+        /// .sharpy-crash; the plugin counts them.
+        /// </summary>
+        internal static List<string> MissingOutputWarnings(IEnumerable<string> spyAssets, ICollection<string> stagedSources)
+        {
+            var warnings = new List<string>();
+
+            foreach (string spy in spyAssets)
+            {
+                if (stagedSources.Contains(spy))
+                {
+                    continue;
+                }
+
+                string skipped = null;
+
+                foreach (string segment in spy.Split('/'))
+                {
+                    foreach (string name in SkippedSegments)
+                    {
+                        if (string.Equals(segment, name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            skipped = segment;
+                        }
+                    }
+                }
+
+                warnings.Add(skipped != null
+                    ? $"[Sharpy] {spy} was not compiled: sharpyc skips sources under a folder named \"{skipped}\" "
+                        + "(it treats bin, obj and .sharpy-crash as build output). Move it to another folder."
+                    : $"[Sharpy] {spy} was not compiled: sharpyc produced no C# for it.");
+            }
+
+            return warnings;
         }
 
         /// <summary>sharpyc rejects a project with no source files.</summary>

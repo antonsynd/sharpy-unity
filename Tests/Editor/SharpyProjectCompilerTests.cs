@@ -202,5 +202,80 @@ namespace Sharpy.Unity.Editor.Tests
                 "sharpyc 0.22.0",
                 SharpyProjectCompiler.CompilerIdentity("/opt/sharpyc", "/opt/sharpyc", true, () => "sharpyc 0.22.0"));
         }
+
+        [Test]
+        public void FindStagedSource_UppercaseExtension_Found()
+        {
+            var stems = SharpyProjectCompiler.SourceStems(new[] { "Assets/Scripts/Greeting.SPY", "Assets/Scripts/other.spy" });
+
+            Assert.AreEqual("Assets/Scripts/Greeting.SPY", SharpyProjectCompiler.FindStagedSource("Scripts/Greeting.cs", stems));
+            Assert.AreEqual("Assets/Scripts/other.spy", SharpyProjectCompiler.FindStagedSource("Assets/Scripts/other.cs", stems));
+        }
+
+        [Test]
+        public void FindStagedSource_NoSuchSource_Null()
+        {
+            var stems = SharpyProjectCompiler.SourceStems(new[] { "Assets/Scripts/Core/greeting.spy" });
+
+            Assert.IsNull(SharpyProjectCompiler.FindStagedSource("greeting.cs", stems));
+            Assert.IsNull(SharpyProjectCompiler.FindStagedSource("Scripts/Ui/greeting.cs", stems));
+        }
+
+        [Test]
+        public void UnmappedStagingMessage_FlatLayout_NamesTheCompilerVersion()
+        {
+            StringAssert.Contains(
+                "newer than 0.21.0",
+                SharpyProjectCompiler.UnmappedStagingMessage(
+                    "greeting.cs", new[] { "Assets/Scripts/Core/greeting.spy" }, "Assets/SharpyGenerated"));
+        }
+
+        [Test]
+        public void UnmappedStagingMessage_MirroredLayout_NoVersionClaim()
+        {
+            string message = SharpyProjectCompiler.UnmappedStagingMessage(
+                "Scripts/Ui/stray.cs", new[] { "Assets/Scripts/Core/greeting.spy" }, "Assets/SharpyGenerated");
+
+            StringAssert.Contains("Scripts/Ui/stray.cs", message);
+            StringAssert.DoesNotContain("0.21.0", message);
+        }
+
+        [Test]
+        public void UnmappedStagingMessage_TopLevelSourcesOnly_NoVersionClaim()
+        {
+            StringAssert.DoesNotContain(
+                "0.21.0",
+                SharpyProjectCompiler.UnmappedStagingMessage("stray.cs", new[] { "Assets/top.spy" }, "Assets/SharpyGenerated"));
+        }
+
+        [Test]
+        public void MissingOutputWarnings_SourceUnderBinOrObj_NamesTheFolder()
+        {
+            List<string> warnings = SharpyProjectCompiler.MissingOutputWarnings(
+                new[] { "Assets/Scripts/Core/greeting.spy", "Assets/Tools/Bin/tool.spy", "Assets/obj/x.spy" },
+                new List<string> { "Assets/Scripts/Core/greeting.spy" });
+
+            Assert.AreEqual(2, warnings.Count);
+            StringAssert.Contains("Assets/Tools/Bin/tool.spy", warnings[0]);
+            StringAssert.Contains("\"Bin\"", warnings[0]);
+            StringAssert.Contains("\"obj\"", warnings[1]);
+        }
+
+        [Test]
+        public void MissingOutputWarnings_AllCompiled_None()
+        {
+            CollectionAssert.IsEmpty(SharpyProjectCompiler.MissingOutputWarnings(
+                new[] { "Assets/Scripts/binary/a.spy" }, new List<string> { "Assets/Scripts/binary/a.spy" }));
+        }
+
+        [Test]
+        public void MissingOutputWarnings_OtherCause_GenericWarning()
+        {
+            List<string> warnings = SharpyProjectCompiler.MissingOutputWarnings(
+                new[] { "Assets/Scripts/binary/a.spy" }, new List<string>());
+
+            Assert.AreEqual(1, warnings.Count);
+            StringAssert.DoesNotContain("bin, obj", warnings[0]);
+        }
     }
 }
