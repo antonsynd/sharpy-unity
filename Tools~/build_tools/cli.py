@@ -23,6 +23,7 @@ SHARPY_REPO = REPO_ROOT.parent / "sharpy"
 
 EDITOR_DIR = REPO_ROOT / "Editor"
 RUNTIME_DIR = REPO_ROOT / "Runtime"
+TESTS_DIR = REPO_ROOT / "Tests"
 PLUGINS_DIR = REPO_ROOT / "Plugins" / "Sharpy.Core"
 BINARIES_DIR = EDITOR_DIR / "Binaries"
 
@@ -57,10 +58,17 @@ def main():
 
 
 @main.command()
-@click.option("--check", is_flag=True, help="Check only, don't modify files.")
-def format(check: bool):
-    """Format C# files per .editorconfig conventions."""
-    cs_files = list(EDITOR_DIR.rglob("*.cs")) + list(RUNTIME_DIR.rglob("*.cs"))
+@click.option("--check", is_flag=True, help="Check only, don't modify files; exit 1 if any need fixing.")
+@click.argument("paths", nargs=-1, type=click.Path(exists=True, path_type=Path))
+def format(check: bool, paths: tuple[Path, ...]):
+    """Format C# files per .editorconfig conventions.
+
+    PATHS (files or folders) default to Editor/, Runtime/ and Tests/.
+    """
+    roots = paths or (EDITOR_DIR, RUNTIME_DIR, TESTS_DIR)
+    cs_files = []
+    for root in roots:
+        cs_files += [root] if root.is_file() else sorted(root.rglob("*.cs"))
 
     if not cs_files:
         log.info("No .cs files found.")
@@ -68,20 +76,33 @@ def format(check: bool):
 
     log.info("Found %d C# file(s).", len(cs_files))
 
+    needs_fix = 0
+
     for f in cs_files:
-        content = f.read_text()
-        fixed = content.replace("\r\n", "\n")
-        if not fixed.endswith("\n"):
-            fixed += "\n"
+        # Bytes, not text: text mode would translate CRLF on read and hide it.
+        content = f.read_bytes()
+        fixed = content.replace(b"\r\n", b"\n")
+        if not fixed.endswith(b"\n"):
+            fixed += b"\n"
 
         if fixed != content:
+            needs_fix += 1
             if check:
-                log.warning("Would fix: %s", f.relative_to(REPO_ROOT))
+                log.warning("Would fix: %s", _display_path(f))
             else:
-                f.write_text(fixed)
-                log.info("Fixed: %s", f.relative_to(REPO_ROOT))
+                f.write_bytes(fixed)
+                log.info("Fixed: %s", _display_path(f))
+
+    if check and needs_fix:
+        log.error("%d file(s) need formatting; run without --check to fix.", needs_fix)
+        sys.exit(1)
 
     log.info("Format %s.", "check complete" if check else "complete")
+
+
+def _display_path(path: Path) -> Path:
+    resolved = path.resolve()
+    return resolved.relative_to(REPO_ROOT) if resolved.is_relative_to(REPO_ROOT) else path
 
 
 # ---------------------------------------------------------------------------
