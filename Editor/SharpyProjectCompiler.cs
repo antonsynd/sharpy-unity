@@ -97,10 +97,10 @@ namespace Sharpy.Unity.Editor
         /// Whether to run sharpyc. <paramref name="force"/> always compiles. The
         /// load/focus path (<paramref name="skipKnownFailure"/>) also skips
         /// inputs whose build already failed this session; any change to them
-        /// gives a new fingerprint and so a new attempt.
+        /// (see <see cref="FailureKey"/>) means a new attempt.
         /// </summary>
         internal static CompileDecision Decide(
-            bool force, bool upToDate, bool skipKnownFailure, string fingerprint, string lastFailedFingerprint)
+            bool force, bool upToDate, bool skipKnownFailure, string failureKey, string lastFailureKey)
         {
             if (force)
             {
@@ -112,9 +112,36 @@ namespace Sharpy.Unity.Editor
                 return CompileDecision.UpToDate;
             }
 
-            return skipKnownFailure && fingerprint == lastFailedFingerprint
+            return skipKnownFailure && failureKey == lastFailureKey
                 ? CompileDecision.KnownFailure
                 : CompileDecision.Compile;
+        }
+
+        /// <summary>
+        /// What a failed build is remembered by: its fingerprint (sources,
+        /// settings, and the compiler, including whether it is installed) and
+        /// the timeout, which can turn a timeout into a success without any
+        /// other input changing.
+        /// </summary>
+        internal static string FailureKey(string fingerprint, int timeoutSeconds)
+        {
+            return fingerprint + "|timeout=" + timeoutSeconds;
+        }
+
+        /// <summary>
+        /// The compiler as the fingerprint sees it. The managed install is the
+        /// pinned version by construction, once it is there. A custom compiler
+        /// is asked for its version (<paramref name="askVersion"/>) when it exists.
+        /// </summary>
+        internal static string CompilerIdentity(
+            string customCompilerPath, string compilerPath, bool exists, Func<string> askVersion)
+        {
+            if (string.IsNullOrWhiteSpace(customCompilerPath))
+            {
+                return "managed " + SharpyToolchain.Version + (exists ? "" : " (not installed)");
+            }
+
+            return exists ? askVersion() : "missing " + compilerPath;
         }
 
         private static bool CompileAndSync(bool force, bool skipKnownFailure)
@@ -153,7 +180,9 @@ namespace Sharpy.Unity.Editor
                 fingerprint,
                 path => File.Exists(generatedDir + "/" + path));
 
-            switch (Decide(force, upToDate, skipKnownFailure, fingerprint, SessionState.GetString(LastFailedFingerprintKey, "")))
+            string failureKey = FailureKey(fingerprint, settings.CompilerTimeoutSeconds);
+
+            switch (Decide(force, upToDate, skipKnownFailure, failureKey, SessionState.GetString(LastFailedFingerprintKey, "")))
             {
                 case CompileDecision.UpToDate:
                     return true;
@@ -163,15 +192,12 @@ namespace Sharpy.Unity.Editor
 
             var staged = new Dictionary<string, string>();
 
-            if (NeedsCompiler(spyAssets) && !BuildProject(root, settings, projectText, spyAssets, staged, out bool rejected))
+            if (NeedsCompiler(spyAssets) && !BuildProject(root, settings, projectText, spyAssets, staged))
             {
-                // Only a verdict on the sources is remembered; a missing
-                // compiler or a timeout may be gone by the next focus.
-                if (rejected)
-                {
-                    SessionState.SetString(LastFailedFingerprintKey, fingerprint);
-                }
-
+                // Includes a missing compiler or a timeout (-1): retrying those
+                // on every focus would block the editor each time. Installing
+                // the compiler or changing the timeout changes the key.
+                SessionState.SetString(LastFailedFingerprintKey, failureKey);
                 return false;
             }
 
@@ -254,10 +280,8 @@ namespace Sharpy.Unity.Editor
             SharpySettings settings,
             string projectText,
             ICollection<string> spyAssets,
-            Dictionary<string, string> staged,
-            out bool rejected)
+            Dictionary<string, string> staged)
         {
-            rejected = false;
             SharpyBinaryDownloader.EnsureVersionChecked();
             SharpyCompilerBridge.WarnOnNamespaceCollision(settings.RootNamespace);
 
@@ -298,7 +322,6 @@ namespace Sharpy.Unity.Editor
 
             if (!ShouldSync(result.ExitCode))
             {
-                rejected = result.ExitCode > 0;
                 return false;
             }
 
@@ -318,7 +341,6 @@ namespace Sharpy.Unity.Editor
                         $"[Sharpy] sharpyc wrote \"{stagedPath}\", which does not mirror a .spy under Assets/. "
                         + "This package needs a sharpyc whose `project --emit-cs-to` mirrors the source tree "
                         + $"(newer than 0.21.0). Generated files in {settings.GeneratedOutputPath} were left as they were.");
-                    rejected = true;
                     return false;
                 }
 
@@ -440,22 +462,17 @@ namespace Sharpy.Unity.Editor
 
         private const string CompilerVersionKeyPrefix = "Sharpy.CompilerVersion:";
 
-        // The managed install is the pinned version by construction. A custom
-        // compiler is asked once per session, and again when its binary changes.
+        // A custom compiler is asked once per session, and again when its
+        // binary changes.
         private static string CompilerVersion(SharpySettings settings)
         {
-            if (string.IsNullOrWhiteSpace(settings.CustomCompilerPath))
-            {
-                return "managed " + SharpyToolchain.Version;
-            }
-
             string path = SharpyCompilerBridge.GetCompilerPath();
 
-            if (!File.Exists(path))
-            {
-                return "missing " + path;
-            }
+            return CompilerIdentity(settings.CustomCompilerPath, path, File.Exists(path), () => CustomCompilerVersion(path));
+        }
 
+        private static string CustomCompilerVersion(string path)
+        {
             string stamp = path + "|" + File.GetLastWriteTimeUtc(path).Ticks + "|";
             string cached = SessionState.GetString(CompilerVersionKeyPrefix + path, "");
 

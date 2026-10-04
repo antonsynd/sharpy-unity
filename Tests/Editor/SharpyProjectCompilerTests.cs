@@ -161,5 +161,46 @@ namespace Sharpy.Unity.Editor.Tests
         {
             Assert.AreEqual(expected, SharpyProjectCompiler.IsOutputFolderChange(previous, current));
         }
+
+        [Test]
+        public void FailureKey_TimeoutChanged_RetriesOnFocus()
+        {
+            Assert.AreEqual(
+                SharpyProjectCompiler.CompileDecision.Compile,
+                SharpyProjectCompiler.Decide(
+                    false, false, true,
+                    SharpyProjectCompiler.FailureKey("fp", 60),
+                    SharpyProjectCompiler.FailureKey("fp", 30)));
+            Assert.AreEqual(
+                SharpyProjectCompiler.CompileDecision.KnownFailure,
+                SharpyProjectCompiler.Decide(
+                    false, false, true,
+                    SharpyProjectCompiler.FailureKey("fp", 30),
+                    SharpyProjectCompiler.FailureKey("fp", 30)));
+        }
+
+        [Test]
+        public void CompilerIdentity_ManagedInstall_ChangesWhenInstalled()
+        {
+            string missing = SharpyProjectCompiler.CompilerIdentity("", "/p/Library/SharpyCompiler/sharpyc", false, () => "never");
+            string installed = SharpyProjectCompiler.CompilerIdentity("", "/p/Library/SharpyCompiler/sharpyc", true, () => "never");
+
+            Assert.AreNotEqual(missing, installed);
+            StringAssert.Contains(SharpyToolchain.Version, installed);
+        }
+
+        [Test]
+        public void CompilerIdentity_CustomCompiler_AskedOnlyWhenPresent()
+        {
+            int asked = 0;
+
+            Assert.AreEqual(
+                "missing /opt/sharpyc",
+                SharpyProjectCompiler.CompilerIdentity("/opt/sharpyc", "/opt/sharpyc", false, () => { asked++; return "v"; }));
+            Assert.AreEqual(0, asked);
+            Assert.AreEqual(
+                "sharpyc 0.22.0",
+                SharpyProjectCompiler.CompilerIdentity("/opt/sharpyc", "/opt/sharpyc", true, () => "sharpyc 0.22.0"));
+        }
     }
 }

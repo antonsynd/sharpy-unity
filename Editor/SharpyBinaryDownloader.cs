@@ -309,6 +309,9 @@ namespace Sharpy.Unity.Editor
                 EditorUtility.ClearProgressBar();
 
                 LogInstalled(rid);
+
+                // Nothing else retries a compile that failed for want of a compiler.
+                SharpyProjectCompiler.Compile(force: true);
             }
             catch (Exception ex)
             {
