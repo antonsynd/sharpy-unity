@@ -105,6 +105,12 @@ namespace Sharpy.Unity.Editor
                 serializedSettings.FindProperty("generatedOutputPath"),
                 new GUIContent("Generated Output Path"));
 
+            EditorGUILayout.PropertyField(
+                serializedSettings.FindProperty("sourceMappedErrors"),
+                new GUIContent(
+                    "Source-mapped errors",
+                    "When on, generated C# keeps #line directives rewritten to point at the .spy source, so errors and stack traces name .spy lines. When off, the directives are stripped and they name the generated .cs."));
+
             var rootNamespaceProperty = serializedSettings.FindProperty("rootNamespace");
 
             EditorGUILayout.PropertyField(rootNamespaceProperty, new GUIContent("Root Namespace"));

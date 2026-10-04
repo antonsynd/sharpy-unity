@@ -18,6 +18,7 @@ namespace Sharpy.Unity.Editor
         [SerializeField] private List<string> additionalReferences = new List<string>();
         [SerializeField] private bool autoUnityReferences = true;
         [SerializeField] private List<string> referenceDenylist = new List<string>();
+        [SerializeField] private bool sourceMappedErrors = true;
 
         public string GeneratedOutputPath => generatedOutputPath;
         public int CompilerTimeoutSeconds => compilerTimeoutSeconds;
@@ -28,6 +29,7 @@ namespace Sharpy.Unity.Editor
         public List<string> AdditionalReferences => additionalReferences;
         public bool AutoUnityReferences => autoUnityReferences;
         public List<string> ReferenceDenylist => referenceDenylist;
+        public bool SourceMappedErrors => sourceMappedErrors;
 
         public void Save()
         {

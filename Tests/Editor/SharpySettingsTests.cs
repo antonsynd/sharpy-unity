@@ -78,6 +78,12 @@ namespace Sharpy.Unity.Editor.Tests
         }
 
         [Test]
+        public void DefaultSourceMappedErrors_IsTrue()
+        {
+            Assert.IsTrue(SharpySettings.instance.SourceMappedErrors);
+        }
+
+        [Test]
         public void NamespaceCollidesWithSharpy_SharpySegment_ReturnsTrue()
         {
             Assert.IsTrue(SharpySettings.NamespaceCollidesWithSharpy("Sharpy"));
