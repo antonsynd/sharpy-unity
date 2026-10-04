@@ -1,0 +1,21 @@
+"""A MonoBehaviour that imports a module from another folder."""
+
+from unity_engine import MonoBehaviour, Transform, Vector3, Time, Debug
+
+# Relative import: works wherever Unity puts the sample under Assets/.
+from ..Core.greeting import greet, wrap_degrees
+
+
+class Spinner(MonoBehaviour):
+    """Logs a greeting on start and spins its GameObject around the Y axis."""
+
+    degrees_per_second: float32 = 90.0
+    angle: float32 = 0.0
+
+    def start(self) -> None:
+        Debug.log(greet(self.name))
+
+    def update(self) -> None:
+        self.angle = wrap_degrees(self.angle + self.degrees_per_second * Time.delta_time)
+        t: Transform = self.transform
+        t.local_euler_angles = Vector3(0.0, self.angle, 0.0)
