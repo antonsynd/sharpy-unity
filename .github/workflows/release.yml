@@ -1,0 +1,78 @@
+name: Release
+
+# A version bump reaching mainline IS the release: once Unity CI passes on a
+# mainline push, this tags the commit v<package.json version> and creates the
+# GitHub release from that version's CHANGELOG section. A version that is
+# already tagged is skipped, so ordinary pushes do nothing. Do not tag by hand.
+#
+# To release: bump package.json "version", rename CHANGELOG's [Unreleased]
+# section to [X.Y.Z] - YYYY-MM-DD, and push to mainline.
+on:
+  workflow_run:
+    workflows: [Unity CI]
+    types: [completed]
+    branches: [mainline]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Tag and release the package version
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The commit CI tested, not whatever mainline is now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Read the package version
+        id: version
+        run: |
+          version=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "v$version is already tagged; nothing to release."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract the CHANGELOG section
+        if: steps.version.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'EOF'
+          import os, re, sys
+          version, repo = os.environ["VERSION"], os.environ["REPO"]
+          text = open("CHANGELOG.md", encoding="utf-8").read()
+          match = re.search(
+              r"^## \[" + re.escape(version) + r"\][^\n]*\n(.*?)(?=^## \[|\Z)",
+              text, re.S | re.M)
+          body = match.group(1).strip() if match else ""
+          if not body:
+              sys.exit(f"CHANGELOG.md has no [{version}] section: rename [Unreleased] before releasing.")
+          install = ("Install with Unity's Package Manager > Add package from git URL:\n\n"
+                     f"```\nhttps://github.com/{repo}.git#v{version}\n```\n\n")
+          open("release-notes.md", "w", encoding="utf-8").write(install + body + "\n")
+          EOF
+
+      - name: Create the tag and GitHub release
+        if: steps.version.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release create "$TAG" \
+            --target "$(git rev-parse HEAD)" \
+            --title "$TAG" \
+            --notes-file release-notes.md

@@ -26,7 +26,7 @@ Samples~/BasicSetup/         # UPM importable sample
 Documentation~/              # Package documentation (hidden from Unity)
 package.json                 # UPM manifest
 Tools~/build_tools/          # Python CLI (in a `~` folder so Unity skips it): DLL/compiler bundling, smoke-compile, toolchain updates
-.github/workflows/           # CI (unity-ci.yml)
+.github/workflows/           # CI (unity-ci.yml), release (release.yml), weekly pin check (toolchain-pin.yml)
 ```
 
 ## Key Design Decisions
@@ -112,6 +112,7 @@ Tools~/build_tools/          # Python CLI (in a `~` folder so Unity skips it): D
 - **Tests are falsifiable** — every new test is mutation-checked: break the code it guards → red, restore (from a `cp` copy, never git) → green, both recorded in the commit body. A test that passes either way is a finding, not coverage; absence assertions need a positive control.
 - **Commit trailers** come from the harness for the session — never hard-code a model name in skills or messages.
 - Use `/commit` and `/push`; `/push` runs the pre-push gates (smoke-compile, format check, manifest/workflow validation) that CI enforces.
+- **Releasing = a version bump reaching `mainline`.** Bump `package.json` `version` (and `SharpyUnityRuntime.Version`), rename CHANGELOG's `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD`, push to `mainline`. Once Unity CI passes there, `release.yml` tags `vX.Y.Z` on the tested commit and creates the GitHub release from that CHANGELOG section. Never tag by hand; an already-tagged version is skipped.
 
 ## Build Tools
 
