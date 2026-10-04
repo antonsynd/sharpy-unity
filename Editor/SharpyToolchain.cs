@@ -20,6 +20,11 @@ namespace Sharpy.Unity.Editor
         public static string ReleaseUrlBase =>
             "https://github.com/antonsynd/sharpy/releases/download/" + ReleaseTag + "/";
 
+        // Optional Sharpy.Stdlib plus its dependencies (see SharpyStdlibInstaller).
+        public const string StdlibArchiveName = "sharpy-stdlib-netstandard2.1.zip";
+
+        public static string StdlibArchiveUrl => ReleaseUrlBase + StdlibArchiveName;
+
         public static string GetPlatformRid()
         {
             if (Application.platform == RuntimePlatform.OSXEditor)
