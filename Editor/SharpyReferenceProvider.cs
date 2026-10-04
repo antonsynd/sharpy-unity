@@ -5,6 +5,7 @@ namespace Sharpy.Unity.Editor
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using UnityEditor;
     using UnityEditor.Compilation;
 
     /// <summary>
@@ -100,31 +101,84 @@ namespace Sharpy.Unity.Editor
 
         /// <summary>
         /// Unfiltered, absolute reference paths: the player
-        /// <c>Assembly-CSharp</c>'s references, or Unity's and the user's
-        /// precompiled assemblies when the project has no <c>Assembly-CSharp</c>
-        /// yet (no scripts outside an asmdef).
+        /// <c>Assembly-CSharp</c>'s references, or, when the project has no
+        /// <c>Assembly-CSharp</c> yet (only .spy scripts), Unity's engine
+        /// assemblies plus the plugins imported for the active build target.
         /// </summary>
         public static List<string> Collect()
         {
-            string[] paths = null;
-
             foreach (Assembly assembly in CompilationPipeline.GetAssemblies(AssembliesType.Player))
             {
                 if (assembly.name == "Assembly-CSharp")
                 {
-                    paths = assembly.allReferences;
-                    break;
+                    return ToAbsolute(assembly.allReferences);
                 }
             }
 
-            if (paths == null)
+            // Not GetPrecompiledAssemblyPaths(UserAssembly): it lists the
+            // plugins the editor loads, including editor-only ones that abort
+            // sharpyc (collab-proxy's unityplastic.dll and log4netPlastic.dll,
+            // com.unity.analytics' Unity.Analytics.Tracker.dll), and misses
+            // player-only ones (Newtonsoft.Json's AOT build).
+            var playerPlugins = new HashSet<string>();
+
+            foreach (PluginImporter importer in PluginImporter.GetImporters(EditorUserBuildSettings.activeBuildTarget))
             {
-                paths = CompilationPipeline.GetPrecompiledAssemblyPaths(
-                    CompilationPipeline.PrecompiledAssemblySources.UnityEngine
-                    | CompilationPipeline.PrecompiledAssemblySources.UserAssembly);
+                playerPlugins.Add(importer.assetPath);
             }
 
-            return ToAbsolute(paths);
+            var plugins = new List<PluginEntry>();
+
+            foreach (PluginImporter importer in PluginImporter.GetAllImporters())
+            {
+                plugins.Add(new PluginEntry(
+                    FileUtil.GetPhysicalPath(importer.assetPath),
+                    importer.isNativePlugin,
+                    playerPlugins.Contains(importer.assetPath)));
+            }
+
+            return ToAbsolute(FallbackReferences(
+                CompilationPipeline.GetPrecompiledAssemblyPaths(
+                    CompilationPipeline.PrecompiledAssemblySources.UnityEngine),
+                plugins));
+        }
+
+        internal readonly struct PluginEntry
+        {
+            public readonly string Path;
+            public readonly bool IsNative;
+            public readonly bool ForPlayer;
+
+            public PluginEntry(string path, bool isNative, bool forPlayer)
+            {
+                Path = path;
+                IsNative = isNative;
+                ForPlayer = forPlayer;
+            }
+        }
+
+        /// <summary>
+        /// The references a player script would get without an
+        /// Assembly-CSharp to ask: the engine assemblies, then every managed
+        /// plugin imported for the player. Editor-only plugins are left out.
+        /// </summary>
+        internal static List<string> FallbackReferences(
+            IEnumerable<string> engineAssemblies,
+            IEnumerable<PluginEntry> plugins)
+        {
+            var result = new List<string>(engineAssemblies);
+
+            foreach (PluginEntry plugin in plugins)
+            {
+                if (plugin.ForPlayer
+                    && !plugin.IsNative
+                    && plugin.Path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Add(plugin.Path);
+                }
+            }
+
+            return result;
         }
 
         // Script assemblies come back as "Library/ScriptAssemblies/x.dll";

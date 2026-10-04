@@ -131,6 +131,66 @@ namespace Sharpy.Unity.Editor.Tests
                 result);
         }
 
+        private static SharpyReferenceProvider.PluginEntry Plugin(string path, bool forPlayer, bool isNative = false)
+        {
+            return new SharpyReferenceProvider.PluginEntry(path, isNative, forPlayer);
+        }
+
+        [Test]
+        public void FallbackReferences_PlayerManagedPlugins_AllKeptAfterEngine()
+        {
+            var result = SharpyReferenceProvider.FallbackReferences(
+                new[] { Managed + "UnityEngine.CoreModule.dll", Managed + "UnityEngine.AudioModule.dll" },
+                new[]
+                {
+                    Plugin("/Project/Assets/Plugins/Game.Data.dll", true),
+                    Plugin("/Project/Library/PackageCache/com.unity.nuget.newtonsoft-json/Runtime/AOT/Newtonsoft.Json.dll", true),
+                });
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    Managed + "UnityEngine.CoreModule.dll",
+                    Managed + "UnityEngine.AudioModule.dll",
+                    "/Project/Assets/Plugins/Game.Data.dll",
+                    "/Project/Library/PackageCache/com.unity.nuget.newtonsoft-json/Runtime/AOT/Newtonsoft.Json.dll",
+                },
+                result);
+        }
+
+        [Test]
+        public void FallbackReferences_EditorOnlyPlugins_Dropped()
+        {
+            var result = SharpyReferenceProvider.FallbackReferences(
+                new[] { Managed + "UnityEngine.CoreModule.dll" },
+                new[]
+                {
+                    Plugin("/Project/Library/PackageCache/com.unity.collab-proxy/Lib/Editor/unityplastic.dll", false),
+                    Plugin("/Project/Library/PackageCache/com.unity.collab-proxy/Lib/Editor/log4netPlastic.dll", false),
+                    Plugin("/Project/Library/PackageCache/com.unity.analytics/Unity.Analytics.Tracker.dll", false),
+                    Plugin("/Project/Assets/Plugins/Game.Data.dll", true),
+                });
+
+            CollectionAssert.AreEqual(
+                new[] { Managed + "UnityEngine.CoreModule.dll", "/Project/Assets/Plugins/Game.Data.dll" },
+                result);
+        }
+
+        [Test]
+        public void FallbackReferences_NativeAndNonDllPlugins_Dropped()
+        {
+            var result = SharpyReferenceProvider.FallbackReferences(
+                new string[0],
+                new[]
+                {
+                    Plugin("/Project/Assets/Plugins/x86_64/sqlite3.dll", true, isNative: true),
+                    Plugin("/Project/Assets/Plugins/macOS/libfoo.bundle", true),
+                    Plugin("/Project/Assets/Plugins/Game.Data.DLL", true),
+                });
+
+            CollectionAssert.AreEqual(new[] { "/Project/Assets/Plugins/Game.Data.DLL" }, result);
+        }
+
         [Test]
         public void EditorDependentAssemblyPaths_FlagsEditorAssemblyOnly()
         {
