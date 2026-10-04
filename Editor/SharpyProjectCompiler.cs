@@ -123,7 +123,7 @@ namespace Sharpy.Unity.Editor
             string generatedFolder = NormalizeFolder(settings.GeneratedOutputPath);
             List<string> spyAssets = FindSpyAssets(root);
 
-            string folderProblem = CheckGeneratedFolder(generatedFolder, spyAssets);
+            string folderProblem = SharpyGeneratedOwnership.Prepare(root, settings.GeneratedOutputPath, spyAssets);
 
             if (folderProblem != null)
             {
@@ -381,34 +381,6 @@ namespace Sharpy.Unity.Editor
             return warnings;
         }
 
-        /// <summary>
-        /// Why <paramref name="generatedFolder"/> cannot be synced, or null. The
-        /// sync deletes every .cs in it that sharpyc did not produce, so it must
-        /// be a folder of its own below Assets/ with no sources in it.
-        /// </summary>
-        internal static string CheckGeneratedFolder(string generatedFolder, IEnumerable<string> spyAssets)
-        {
-            string folder = NormalizeFolder(generatedFolder);
-
-            if (!folder.StartsWith("Assets/", StringComparison.Ordinal)
-                || Array.IndexOf(folder.Split('/'), "..") >= 0)
-            {
-                return $"Generated Output Path \"{generatedFolder}\" must be a folder inside Assets/ "
-                    + "(e.g. Assets/SharpyGenerated). Nothing was generated.";
-            }
-
-            foreach (string spy in spyAssets)
-            {
-                if (spy.StartsWith(folder + "/", StringComparison.OrdinalIgnoreCase))
-                {
-                    return $"Generated Output Path \"{generatedFolder}\" contains the source {spy}; "
-                        + "it must be a folder of its own, since every .cs in it is replaced. Nothing was generated.";
-                }
-            }
-
-            return null;
-        }
-
         internal static string NormalizeFolder(string folder)
         {
             return (folder ?? string.Empty).Trim().Replace('\\', '/').TrimEnd('/');
@@ -528,7 +500,7 @@ namespace Sharpy.Unity.Editor
 
         // Every .spy under Assets/ as a sorted, project-relative asset path:
         // the same set the spyproj's glob gives sharpyc.
-        private static List<string> FindSpyAssets(string root)
+        internal static List<string> FindSpyAssets(string root)
         {
             var result = new List<string>();
             string assetsDir = root + "/Assets";

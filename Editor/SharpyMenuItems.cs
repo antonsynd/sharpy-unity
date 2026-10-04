@@ -66,10 +66,13 @@ namespace Sharpy.Unity.Editor
         [MenuItem("Assets/Sharpy/Clean Generated", false, 1002)]
         public static void CleanGenerated()
         {
+            string root = SharpyProjectCompiler.ProjectRoot();
             string outputPath = SharpySettings.instance.GeneratedOutputPath;
 
-            // The generated folder is deleted whole; never Assets/ itself.
-            string folderProblem = SharpyProjectCompiler.CheckGeneratedFolder(outputPath, new string[0]);
+            // Only a valid folder that is Sharpy's, and in it only generated
+            // scripts: never a recursive delete of whatever the setting names.
+            string folderProblem = SharpyGeneratedOwnership.Prepare(
+                root, outputPath, SharpyProjectCompiler.FindSpyAssets(root));
 
             if (folderProblem != null)
             {
@@ -77,28 +80,21 @@ namespace Sharpy.Unity.Editor
                 return;
             }
 
-            // The .spyproj, the staging folder, and sharpyc's bin/ and obj/.
+            // The .spyproj, the staging folder, the fingerprint, and sharpyc's bin/ and obj/.
             if (Directory.Exists(SharpyProjectCompiler.LibraryFolder))
             {
                 Directory.Delete(SharpyProjectCompiler.LibraryFolder, true);
             }
 
-            if (Directory.Exists(outputPath))
+            SharpySyncResult result = SharpyGeneratedSync.Sync(
+                SharpyGeneratedOwnership.FullPath(root, outputPath), new SharpyGeneratedFile[0]);
+
+            if (result.Changed)
             {
-                Directory.Delete(outputPath, true);
-
-                string metaFile = outputPath + ".meta";
-
-                if (File.Exists(metaFile))
-                {
-                    File.Delete(metaFile);
-                }
-
                 AssetDatabase.Refresh();
-                Debug.Log("[Sharpy] Cleaned all generated files.");
             }
 
-            SharpyGeneratedFolderManager.EnsureGeneratedFolder();
+            Debug.Log("[Sharpy] Cleaned all generated files.");
         }
     }
 }

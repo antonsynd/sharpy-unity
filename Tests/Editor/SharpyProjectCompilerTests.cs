@@ -30,33 +30,6 @@ namespace Sharpy.Unity.Editor.Tests
             }
         }
 
-        [TestCase("Assets/SharpyGenerated")]
-        [TestCase("Assets/SharpyGenerated/")]
-        [TestCase("Assets/Gen/Sharpy")]
-        public void CheckGeneratedFolder_OwnFolderInAssets_Ok(string folder)
-        {
-            Assert.IsNull(SharpyProjectCompiler.CheckGeneratedFolder(
-                folder, new[] { "Assets/Scripts/a.spy", "Assets/SharpyGeneratedOther/b.spy" }));
-        }
-
-        [TestCase("Assets")]
-        [TestCase("Assets/")]
-        [TestCase("")]
-        [TestCase("Generated")]
-        [TestCase("Assets/../Generated")]
-        public void CheckGeneratedFolder_NotAFolderInsideAssets_Rejected(string folder)
-        {
-            Assert.IsNotNull(SharpyProjectCompiler.CheckGeneratedFolder(folder, new string[0]));
-        }
-
-        [Test]
-        public void CheckGeneratedFolder_ContainsASource_Rejected()
-        {
-            StringAssert.Contains(
-                "Assets/Scripts/a.spy",
-                SharpyProjectCompiler.CheckGeneratedFolder("Assets/Scripts", new[] { "Assets/Scripts/a.spy" }));
-        }
-
         [Test]
         public void IsStdlibInstalled_MatchesTheFileName()
         {

@@ -16,20 +16,27 @@ namespace Sharpy.Unity.Editor
             EnsureGeneratedFolder();
         }
 
+        /// <summary>
+        /// Creates and marks the generated folder when the setting names a
+        /// valid one that is free. Runs during domain load, so it warns and
+        /// never throws; the compile reports the same problem as an error.
+        /// </summary>
         public static void EnsureGeneratedFolder()
         {
-            string outputPath = SharpySettings.instance.GeneratedOutputPath;
-
-            if (!Directory.Exists(outputPath))
+            try
             {
-                Directory.CreateDirectory(outputPath);
+                string root = SharpyProjectCompiler.ProjectRoot();
+                string problem = SharpyGeneratedOwnership.Prepare(
+                    root, SharpySettings.instance.GeneratedOutputPath, new string[0]);
+
+                if (problem != null)
+                {
+                    Debug.LogWarning("[Sharpy] " + problem);
+                }
             }
-
-            string gitignorePath = Path.Combine(outputPath, ".gitignore");
-
-            if (!File.Exists(gitignorePath))
+            catch (Exception ex)
             {
-                File.WriteAllText(gitignorePath, "*\n");
+                Debug.LogWarning($"[Sharpy] Could not prepare the generated folder: {ex.Message}");
             }
         }
 
