@@ -4,7 +4,7 @@ Unified CLI for building, formatting, bundling DLLs, and managing the
 sharpy-unity UPM package.
 
 Usage:
-    python -m build_tools <command> [options]
+    PYTHONPATH=Tools~ python3 -m build_tools <command> [options]
     build_sharpy_unity <command> [options]
 """
 
@@ -18,7 +18,7 @@ from pathlib import Path
 
 VERSION = "0.1.0"
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SHARPY_REPO = REPO_ROOT.parent / "sharpy"
 
 EDITOR_DIR = REPO_ROOT / "Editor"

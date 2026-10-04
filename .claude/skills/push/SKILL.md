@@ -37,12 +37,12 @@ Catch what CI would fail on **before** pushing. Pick the gates from the files th
 
 | Commits touch | Run |
 |---------------|-----|
-| any `.cs` or `.asmdef` file, or `Plugins/` | `python3 -m build_tools smoke-compile` (CI's license-free `smoke` job — compiles every asmdef against Unity's DLLs; needs a local Unity editor install or `--unity-path`) |
-| any `.cs` file | `python3 -m build_tools format --check` — whole repo, not just the files you touched: a file someone else created slips through per-file formatting |
+| any `.cs` or `.asmdef` file, or `Plugins/` | `PYTHONPATH=Tools~ python3 -m build_tools smoke-compile` (CI's license-free `smoke` job — compiles every asmdef against Unity's DLLs; needs a local Unity editor install or `--unity-path`) |
+| any `.cs` file | `PYTHONPATH=Tools~ python3 -m build_tools format --check` — whole repo, not just the files you touched: a file someone else created slips through per-file formatting |
 | `package.json` | `python3 -c "import json; json.load(open('package.json'))"` (CI's `validate` job) |
 | `.github/workflows/*.yml` | `python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" .github/workflows/*.yml` |
 
-- If a gate fails, stop: fix it (for formatting run `python3 -m build_tools format`), commit the fix with `/commit`, and re-run the gate.
+- If a gate fails, stop: fix it (for formatting run `PYTHONPATH=Tools~ python3 -m build_tools format`), commit the fix with `/commit`, and re-run the gate.
 - If smoke-compile cannot find a Unity install, say so and ask whether to push anyway — never report it as passed.
 
 ### 3. Push

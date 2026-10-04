@@ -17,7 +17,7 @@ case "$FILE" in
             dotnet format whitespace --include "$FILE" 2>/dev/null || true
         fi
         ;;
-    build_tools/*.py)
+    *Tools~/build_tools/*.py)
         if command -v ruff &>/dev/null; then
             ruff format --quiet "$FILE" 2>/dev/null || true
         elif command -v black &>/dev/null; then

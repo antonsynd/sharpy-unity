@@ -6,7 +6,7 @@
 x64/
 x86/
 [Bb]in/
-!build_tools/bin/
+!Tools~/build_tools/bin/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
@@ -55,6 +55,7 @@ Editor/Binaries/linux-arm64/
 *~
 !Samples~/
 !Documentation~/
+!Tools~/
 
 # OS
 .DS_Store
@@ -65,7 +66,7 @@ Thumbs.db
 
 # Build tools temp
 .tmp/
-build_tools/__pycache__/
+Tools~/build_tools/__pycache__/
 
 # Claude
 .claude/settings.local.json

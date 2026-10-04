@@ -68,7 +68,10 @@ jobs:
       - name: Ensure python3
         run: command -v python3 || (apt-get update && apt-get install -y --no-install-recommends python3)
 
+      # build_tools lives in Tools~/ (a `~` folder, so Unity never imports it).
       - name: Smoke compile against the container's Unity DLLs
+        env:
+          PYTHONPATH: Tools~
         run: python3 -m build_tools.smoke_compile --unity-path /opt/unity/Editor/Data/Managed
 
       - name: Show Unity layout (diagnostics)

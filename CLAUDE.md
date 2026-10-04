@@ -26,7 +26,7 @@ Tests/Editor/                # Unity Test Runner tests (editor mode)
 Samples~/BasicSetup/         # UPM importable sample
 Documentation~/              # Package documentation (hidden from Unity)
 package.json                 # UPM manifest
-build_tools/                 # Python CLI: DLL/compiler bundling, smoke-compile, toolchain updates
+Tools~/build_tools/          # Python CLI (in a `~` folder so Unity skips it): DLL/compiler bundling, smoke-compile, toolchain updates
 .github/workflows/           # CI (unity-ci.yml)
 ```
 
@@ -91,11 +91,11 @@ build_tools/                 # Python CLI: DLL/compiler bundling, smoke-compile,
 ## Build Tools
 
 ```bash
-python -m build_tools info                          # Package/toolchain status
-python -m build_tools bundle-all                    # Build Sharpy.Core DLLs + sharpyc from ../sharpy
-python -m build_tools update-toolchain <version>    # Re-pin to a sharpy release (bumps SharpyToolchain.Version + Plugins DLLs)
-python -m build_tools smoke-compile                 # csc-compile all asmdefs against Unity DLLs — no Unity license needed
-python -m build_tools format [--check]              # Normalize .cs line endings/EOF newlines
+PYTHONPATH=Tools~ python3 -m build_tools info                          # Package/toolchain status
+PYTHONPATH=Tools~ python3 -m build_tools bundle-all                    # Build Sharpy.Core DLLs + sharpyc from ../sharpy
+PYTHONPATH=Tools~ python3 -m build_tools update-toolchain <version>    # Re-pin to a sharpy release (bumps SharpyToolchain.Version + Plugins DLLs)
+PYTHONPATH=Tools~ python3 -m build_tools smoke-compile                 # csc-compile all asmdefs against Unity DLLs — no Unity license needed
+PYTHONPATH=Tools~ python3 -m build_tools format [--check]              # Normalize .cs line endings/EOF newlines
 ```
 
 sharpyc and `Plugins/Sharpy.Core/*.dll` versions must move together — always update via `update-toolchain`, never by hand.
@@ -118,4 +118,4 @@ Tests run via Unity Test Runner in editor mode. Test assembly: `Sharpy.Unity.Edi
 
 No `dotnet test` — this is a Unity package, not a .NET solution.
 
-CI (`.github/workflows/unity-ci.yml`): package.json validation → license-free smoke compile (csc against the unityci editor image's DLLs) → licensed Unity Test Runner (requires `UNITY_EMAIL`/`UNITY_PASSWORD`/`UNITY_SERIAL` secrets). Run the smoke compile locally with `python -m build_tools smoke-compile`.
+CI (`.github/workflows/unity-ci.yml`): package.json validation → license-free smoke compile (csc against the unityci editor image's DLLs) → licensed Unity Test Runner (requires `UNITY_EMAIL`/`UNITY_PASSWORD`/`UNITY_SERIAL` secrets). Run the smoke compile locally with `PYTHONPATH=Tools~ python3 -m build_tools smoke-compile`.

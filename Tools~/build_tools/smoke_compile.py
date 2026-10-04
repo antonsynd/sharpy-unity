@@ -12,7 +12,7 @@ exactly like Unity's own asmdef compilation does; a merged build once
 hid a real bug.
 
 Uses only the standard library so CI containers can run it without pip:
-    python3 -m build_tools.smoke_compile [--unity-path <Managed dir>]
+    PYTHONPATH=Tools~ python3 -m build_tools.smoke_compile [--unity-path <Managed dir>]
 """
 
 import argparse
@@ -25,7 +25,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 MACOS_MANAGED_GLOB = (
     "/Applications/Unity/Hub/Editor/*/Unity.app/Contents/Resources/Scripting/Managed"

@@ -39,7 +39,7 @@ Note its **Issues to Close** rows and any **Adversarial Review** section. Record
 - Note existing commits per phase so agents don't duplicate work; mark done items in the checklist (§Task Decomposition)
 
 ### 5. Establish baseline
-- Run `python3 -m build_tools smoke-compile` and `python3 -m build_tools format --check` — if either fails before starting, stop and report the error. Record the result as `PASS @ <sha>`.
+- Run `PYTHONPATH=Tools~ python3 -m build_tools smoke-compile` and `PYTHONPATH=Tools~ python3 -m build_tools format --check` — if either fails before starting, stop and report the error. Record the result as `PASS @ <sha>`.
 - Read all files in `Editor/` to understand current implementations
 - Read `unity-plugin.md` for the design spec context
 - Read `CLAUDE.md` for conventions
@@ -96,7 +96,7 @@ WORKFLOW:
 2. Read existing code patterns in the files you're modifying
 3. Write tests first or alongside implementation (not after)
 4. Implement the changes
-5. Run `python3 -m build_tools smoke-compile` — it must pass
+5. Run `PYTHONPATH=Tools~ python3 -m build_tools smoke-compile` — it must pass
 6. Guard delivery (if your task adds a test): make a copy of the production file (`cp`), break
    the guarded behavior (invert the predicate or revert the production hunk), run the test — it
    must go RED; restore from the copy; run again — GREEN. Record both in the commit body:
@@ -135,7 +135,7 @@ After each task is completed by an agent:
 
 After all implementation tasks are complete:
 
-1. `python3 -m build_tools smoke-compile` and `python3 -m build_tools format --check` — must pass; compare against the baseline
+1. `PYTHONPATH=Tools~ python3 -m build_tools smoke-compile` and `PYTHONPATH=Tools~ python3 -m build_tools format --check` — must pass; compare against the baseline
 2. Read every changed file to verify correctness
 3. Verify assembly definition references are correct
 4. `git diff --stat` and `git status --short` — every delta is claimed by a commit or an agent report
