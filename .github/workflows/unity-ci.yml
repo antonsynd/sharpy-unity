@@ -48,6 +48,13 @@ jobs:
           print(f'  unity: {pkg[\"unity\"]}')
           "
 
+      # A git-URL install is immutable: Unity cannot generate missing .meta
+      # files there and skips the asset instead.
+      - name: Every imported asset has a tracked .meta
+        env:
+          PYTHONPATH: Tools~
+        run: python3 -m build_tools.check_metas
+
   # License-free compile gate: builds the package's assemblies with csc
   # against the editor image's Unity DLLs. Fails in ~a minute with readable
   # compiler output, before the licensed GameCI job spends an activation.

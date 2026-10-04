@@ -96,6 +96,7 @@ PYTHONPATH=Tools~ python3 -m build_tools bundle-all                    # Build S
 PYTHONPATH=Tools~ python3 -m build_tools update-toolchain <version>    # Re-pin to a sharpy release (bumps SharpyToolchain.Version + Plugins DLLs)
 PYTHONPATH=Tools~ python3 -m build_tools smoke-compile                 # csc-compile all asmdefs against Unity DLLs — no Unity license needed
 PYTHONPATH=Tools~ python3 -m build_tools format [--check]              # Normalize .cs line endings/EOF newlines
+PYTHONPATH=Tools~ python3 -m build_tools check-metas                   # Every imported asset has a tracked .meta; no orphans
 ```
 
 sharpyc and `Plugins/Sharpy.Core/*.dll` versions must move together — always update via `update-toolchain`, never by hand.

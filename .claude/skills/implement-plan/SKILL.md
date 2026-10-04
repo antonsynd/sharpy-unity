@@ -135,7 +135,7 @@ After each task is completed by an agent:
 
 After all implementation tasks are complete:
 
-1. `PYTHONPATH=Tools~ python3 -m build_tools smoke-compile` and `PYTHONPATH=Tools~ python3 -m build_tools format --check` — must pass; compare against the baseline
+1. `PYTHONPATH=Tools~ python3 -m build_tools smoke-compile`, `format --check` and `check-metas` — must pass; compare against the baseline
 2. Read every changed file to verify correctness
 3. Verify assembly definition references are correct
 4. `git diff --stat` and `git status --short` — every delta is claimed by a commit or an agent report

@@ -138,7 +138,7 @@ Address every issue found:
 
 After all fixes are committed:
 
-1. `PYTHONPATH=Tools~ python3 -m build_tools smoke-compile` and `PYTHONPATH=Tools~ python3 -m build_tools format --check` — must pass
+1. `PYTHONPATH=Tools~ python3 -m build_tools smoke-compile`, `format --check` and `check-metas` — must pass
 2. Read every `.cs` file that was changed to verify correctness
 3. Verify assembly definitions are consistent (references, platform constraints)
 4. Check `package.json` is valid JSON

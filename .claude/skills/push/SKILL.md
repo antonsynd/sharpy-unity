@@ -39,6 +39,7 @@ Catch what CI would fail on **before** pushing. Pick the gates from the files th
 |---------------|-----|
 | any `.cs` or `.asmdef` file, or `Plugins/` | `PYTHONPATH=Tools~ python3 -m build_tools smoke-compile` (CI's license-free `smoke` job — compiles every asmdef against Unity's DLLs; needs a local Unity editor install or `--unity-path`) |
 | any `.cs` file | `PYTHONPATH=Tools~ python3 -m build_tools format --check` — whole repo, not just the files you touched: a file someone else created slips through per-file formatting |
+| any added, deleted or renamed file, or any `.meta` | `PYTHONPATH=Tools~ python3 -m build_tools check-metas` (CI's `validate` job — every asset Unity imports needs a tracked `.meta`, and no `.meta` may be orphaned) |
 | `package.json` | `python3 -c "import json; json.load(open('package.json'))"` (CI's `validate` job) |
 | `.github/workflows/*.yml` | `python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" .github/workflows/*.yml` |
 

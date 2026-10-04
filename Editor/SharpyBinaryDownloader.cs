@@ -201,78 +201,181 @@ namespace Sharpy.Unity.Editor
             }
         }
 
+        /// <summary>
+        /// Downloads and installs the pinned compiler, blocking the calling
+        /// thread until done. Safe on the main thread: the download runs on
+        /// the thread pool, so nothing waits on a continuation queued to
+        /// Unity's synchronization context. Returns false (and logs) on failure.
+        /// </summary>
+        public static bool InstallBlocking()
+        {
+            string rid = SharpyToolchain.GetPlatformRid();
+            string installDir = Path.GetDirectoryName(SharpyCompilerBridge.GetManagedCompilerPath());
+
+            try
+            {
+                byte[] archive = Task.Run(() => DownloadArchiveAsync(rid)).GetAwaiter().GetResult();
+                InstallArchive(archive, rid, installDir);
+                LogInstalled(rid);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogDownloadFailure(ex);
+                return false;
+            }
+        }
+
+        // Interactive wrapper around the same steps as InstallBlocking: the
+        // work runs on the thread pool while the main thread keeps the
+        // progress bar up and the editor responsive.
         private static async void DownloadCompilerAsync()
         {
             string rid = SharpyToolchain.GetPlatformRid();
-            string extension = rid.StartsWith("win") ? "zip" : "tar.gz";
-            string url = $"{SharpyToolchain.ReleaseUrlBase}sharpyc-{rid}.{extension}";
-            string binariesDir = Path.GetDirectoryName(SharpyCompilerBridge.GetManagedCompilerPath());
+            string installDir = Path.GetDirectoryName(SharpyCompilerBridge.GetManagedCompilerPath());
 
             try
             {
                 EditorUtility.DisplayProgressBar("Sharpy", $"Downloading compiler for {rid}...", 0.1f);
 
-                using var client = new HttpClient();
-                client.Timeout = TimeSpan.FromMinutes(5);
-
-                byte[] data = await client.GetByteArrayAsync(url);
+                byte[] archive = await Task.Run(() => DownloadArchiveAsync(rid));
 
                 EditorUtility.DisplayProgressBar("Sharpy", "Extracting compiler...", 0.7f);
 
-                if (Directory.Exists(binariesDir))
-                {
-                    Directory.Delete(binariesDir, true);
-                }
-
-                Directory.CreateDirectory(binariesDir);
-
-                string tempFile = Path.Combine(Path.GetTempPath(), $"sharpyc-{rid}.{extension}");
-                File.WriteAllBytes(tempFile, data);
-
-                if (extension == "zip")
-                {
-                    ZipFile.ExtractToDirectory(tempFile, binariesDir);
-                }
-                else
-                {
-                    ExtractTarGz(tempFile, binariesDir);
-                }
-
-                File.Delete(tempFile);
-
-                SetExecutablePermission(binariesDir, rid);
+                await Task.Run(() => InstallArchive(archive, rid, installDir));
 
                 EditorUtility.DisplayProgressBar("Sharpy", "Done!", 1.0f);
                 EditorUtility.ClearProgressBar();
 
-                Debug.Log($"[Sharpy] Compiler {SharpyToolchain.Version} installed for {rid} under Library/SharpyCompiler.");
+                LogInstalled(rid);
             }
             catch (Exception ex)
             {
                 EditorUtility.ClearProgressBar();
+                LogDownloadFailure(ex);
 
-                if (Application.isBatchMode)
+                if (!Application.isBatchMode)
                 {
-                    // A warning, not an error: an error log would fail any
-                    // batch test run that merely lacked network access.
-                    Debug.LogWarning($"[Sharpy] Failed to download compiler: {ex.Message}");
-                    return;
+                    EditorUtility.DisplayDialog(
+                        "Sharpy Download Failed",
+                        $"Failed to download the compiler:\n{ex.Message}\n\n"
+                        + "You can retry via Assets > Sharpy > Download Compiler.",
+                        "OK");
                 }
-
-                Debug.LogError($"[Sharpy] Failed to download compiler: {ex.Message}");
-                EditorUtility.DisplayDialog(
-                    "Sharpy Download Failed",
-                    $"Failed to download the compiler:\n{ex.Message}\n\n"
-                    + "You can retry via Assets > Sharpy > Download Compiler.",
-                    "OK");
             }
         }
 
-        private static void ExtractTarGz(string archivePath, string outputDir)
+        private static async Task<byte[]> DownloadArchiveAsync(string rid)
         {
-            using var fileStream = File.OpenRead(archivePath);
-            using var gzipStream = new GZipStream(fileStream, CompressionMode.Decompress);
-            ExtractTar(gzipStream, outputDir);
+            string url = $"{SharpyToolchain.ReleaseUrlBase}sharpyc-{rid}.{ArchiveExtension(rid)}";
+
+            using var client = new HttpClient();
+            client.Timeout = TimeSpan.FromMinutes(5);
+
+            return await client.GetByteArrayAsync(url).ConfigureAwait(false);
+        }
+
+        private static string ArchiveExtension(string rid)
+        {
+            return rid.StartsWith("win") ? "zip" : "tar.gz";
+        }
+
+        private static void LogInstalled(string rid)
+        {
+            Debug.Log($"[Sharpy] Compiler {SharpyToolchain.Version} installed for {rid} under Library/SharpyCompiler.");
+        }
+
+        private static void LogDownloadFailure(Exception ex)
+        {
+            if (Application.isBatchMode)
+            {
+                // A warning, not an error: an error log would fail any
+                // batch test run that merely lacked network access.
+                Debug.LogWarning($"[Sharpy] Failed to download compiler: {ex.Message}");
+                return;
+            }
+
+            Debug.LogError($"[Sharpy] Failed to download compiler: {ex.Message}");
+        }
+
+        // Extracts into a sibling staging directory and renames it into
+        // place, so an interrupted or failed install never leaves a partial
+        // folder that IsCompilerInstalled would accept. The staging
+        // directory shares the destination's parent, so the rename never
+        // crosses volumes. Throws on failure; any previous install is kept.
+        internal static void InstallArchive(byte[] archive, string rid, string installDir)
+        {
+            string binaryName = rid.StartsWith("win") ? "sharpyc.exe" : "sharpyc";
+            string suffix = Guid.NewGuid().ToString("N");
+            string stagingDir = installDir + ".staging-" + suffix;
+            string previousDir = installDir + ".previous-" + suffix;
+
+            Directory.CreateDirectory(stagingDir);
+
+            try
+            {
+                using (var archiveStream = new MemoryStream(archive))
+                {
+                    if (ArchiveExtension(rid) == "zip")
+                    {
+                        using var zip = new ZipArchive(archiveStream, ZipArchiveMode.Read);
+                        zip.ExtractToDirectory(stagingDir);
+                    }
+                    else
+                    {
+                        using var gzipStream = new GZipStream(archiveStream, CompressionMode.Decompress);
+                        ExtractTar(gzipStream, stagingDir);
+                    }
+                }
+
+                if (!File.Exists(Path.Combine(stagingDir, binaryName)))
+                {
+                    throw new InvalidDataException($"The compiler archive does not contain {binaryName}.");
+                }
+
+                SetExecutablePermission(stagingDir, rid);
+
+                // Directory.Move refuses an existing destination, so the old
+                // install steps aside first and comes back if the swap fails.
+                if (Directory.Exists(installDir))
+                {
+                    Directory.Move(installDir, previousDir);
+                }
+
+                try
+                {
+                    Directory.Move(stagingDir, installDir);
+                }
+                catch
+                {
+                    if (Directory.Exists(previousDir))
+                    {
+                        Directory.Move(previousDir, installDir);
+                    }
+
+                    throw;
+                }
+            }
+            finally
+            {
+                TryDeleteDirectory(stagingDir);
+                TryDeleteDirectory(previousDir);
+            }
+        }
+
+        private static void TryDeleteDirectory(string dir)
+        {
+            try
+            {
+                if (Directory.Exists(dir))
+                {
+                    Directory.Delete(dir, true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[Sharpy] Could not remove {dir}: {ex.Message}");
+            }
         }
 
         private static void ExtractTar(Stream stream, string outputDir)
@@ -326,6 +429,12 @@ namespace Sharpy.Unity.Editor
                     {
                         int toRead = (int)Math.Min(remaining, buffer.Length);
                         int read = ReadFull(stream, buffer, 0, toRead);
+
+                        if (read == 0)
+                        {
+                            throw new EndOfStreamException($"The compiler archive is truncated inside {name}.");
+                        }
+
                         outFile.Write(buffer, 0, read);
                         remaining -= read;
                     }

@@ -242,6 +242,19 @@ def smoke_compile(unity_path):
 
 
 # ---------------------------------------------------------------------------
+# check-metas
+# ---------------------------------------------------------------------------
+
+
+@main.command("check-metas")
+def check_metas():
+    """Check every imported asset has a tracked .meta and none is orphaned."""
+    from build_tools.check_metas import run_check_metas
+
+    sys.exit(run_check_metas(REPO_ROOT))
+
+
+# ---------------------------------------------------------------------------
 # update-toolchain
 # ---------------------------------------------------------------------------
 
