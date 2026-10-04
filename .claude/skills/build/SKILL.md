@@ -16,7 +16,7 @@ Run each step as a separate Bash call:
 
 1. Run `mkdir -p .claude/tmp` to ensure log directory exists.
 2. Clear the old log with `rm -f .claude/tmp/last-build.log`.
-3. Run: `PYTHONPATH=Tools~ python3 -m build_tools smoke-compile $ARGUMENTS > .claude/tmp/last-build.log 2>&1` (pass `--unity-path <Editor/Data/Managed dir>` through `$ARGUMENTS`, or set `UNITY_MANAGED_DIR`, if no Unity Hub editor is auto-detected).
+3. Run: `PYTHONPATH=Tools~ python3 -m build_tools smoke-compile $ARGUMENTS > .claude/tmp/last-build.log 2>&1` (pass `--unity-path <Editor/Data/Managed dir>` through `$ARGUMENTS`, or set `UNITY_MANAGED_DIR`, if no Unity Hub editor is auto-detected; add `--unity-version <e.g. 2022.3.22f1>` when that path does not name the version, since the version selects the `UNITY_*_OR_NEWER` defines).
 4. Check exit code:
    - Exit 0: Print "=== BUILD SUCCEEDED ===" then `tail -10 .claude/tmp/last-build.log`
    - Exit non-zero: Print "=== BUILD FAILED (last 100 lines) ===" then `tail -100 .claude/tmp/last-build.log`, then echo "=== Full log: .claude/tmp/last-build.log ==="

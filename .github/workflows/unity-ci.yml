@@ -76,10 +76,12 @@ jobs:
         run: command -v python3 || (apt-get update && apt-get install -y --no-install-recommends python3)
 
       # build_tools lives in Tools~/ (a `~` folder, so Unity never imports it).
+      # The container path carries no version, so pass it for the version
+      # defines (UNITY_2022_3_OR_NEWER, ...); keep it in step with the image.
       - name: Smoke compile against the container's Unity DLLs
         env:
           PYTHONPATH: Tools~
-        run: python3 -m build_tools.smoke_compile --unity-path /opt/unity/Editor/Data/Managed
+        run: python3 -m build_tools.smoke_compile --unity-path /opt/unity/Editor/Data/Managed --unity-version 2022.3.22f1
 
       - name: Show Unity layout (diagnostics)
         if: failure()

@@ -234,11 +234,16 @@ def bundle_all(ctx: click.Context, configuration: str):
     default=None,
     help="Path to a Unity editor's Managed directory.",
 )
-def smoke_compile(unity_path):
+@click.option(
+    "--unity-version",
+    default=None,
+    help="That editor's version (e.g. 2022.3.22f1) when its path does not show it.",
+)
+def smoke_compile(unity_path, unity_version):
     """Compile the package's assemblies against Unity DLLs (no license)."""
     from build_tools.smoke_compile import run_smoke_compile
 
-    sys.exit(run_smoke_compile(unity_path))
+    sys.exit(run_smoke_compile(unity_path, unity_version))
 
 
 # ---------------------------------------------------------------------------

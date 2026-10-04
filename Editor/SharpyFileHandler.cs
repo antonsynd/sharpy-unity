@@ -9,11 +9,24 @@ namespace Sharpy.Unity.Editor
 
     public static class SharpyFileHandler
     {
+        // Unity 6000.3 obsoletes the int instance-ID overloads (CS0618) in
+        // favour of EntityId; earlier editors have no EntityId overloads.
+#if UNITY_6000_3_OR_NEWER
+        [OnOpenAsset]
+        public static bool OnOpenAsset(EntityId entityId, int line)
+        {
+            return OpenSpyAsset(AssetDatabase.GetAssetPath(entityId), line);
+        }
+#else
         [OnOpenAsset]
         public static bool OnOpenAsset(int instanceID, int line)
         {
-            string path = AssetDatabase.GetAssetPath(instanceID);
+            return OpenSpyAsset(AssetDatabase.GetAssetPath(instanceID), line);
+        }
+#endif
 
+        private static bool OpenSpyAsset(string path, int line)
+        {
             if (Path.GetExtension(path) != ".spy")
             {
                 return false;
