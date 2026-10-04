@@ -14,6 +14,7 @@ Commands:
     bundle-all       Bundle both Sharpy.Core and sharpyc compiler
     smoke-compile    Compile the package's assemblies against Unity DLLs (no license)
     check-metas      Check every imported asset has a tracked .meta, none orphaned
+    check-pin        Fail when the toolchain pin trails the latest sharpy release
     update-toolchain Re-pin to a sharpy release (version pin + Plugins DLLs)
     clean            Remove temporary build artifacts
     info             Show package and environment info

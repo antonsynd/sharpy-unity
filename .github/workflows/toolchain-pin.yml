@@ -1,0 +1,25 @@
+name: Toolchain pin freshness
+
+# Weekly, never on PRs or pushes: an upstream sharpy release must not turn
+# unrelated work red. A failure means: re-pin with
+#   PYTHONPATH=Tools~ python3 -m build_tools update-toolchain <version>
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-pin:
+    name: Pin trails the latest sharpy release by at most 2 minors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare SharpyToolchain.Version with the latest sharpy release
+        env:
+          PYTHONPATH: Tools~
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 -m build_tools.check_pin

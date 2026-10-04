@@ -281,6 +281,20 @@ def check_metas():
 
 
 # ---------------------------------------------------------------------------
+# check-pin
+# ---------------------------------------------------------------------------
+
+
+@main.command("check-pin")
+@click.option("--latest", default=None, help="Compare against this version instead of fetching it.")
+def check_pin(latest):
+    """Fail when the toolchain pin trails the latest sharpy release by > 2 minors."""
+    from build_tools.check_pin import run_check_pin
+
+    sys.exit(run_check_pin(REPO_ROOT, latest))
+
+
+# ---------------------------------------------------------------------------
 # update-toolchain
 # ---------------------------------------------------------------------------
 
