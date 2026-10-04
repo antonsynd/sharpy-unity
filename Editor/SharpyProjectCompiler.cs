@@ -134,6 +134,8 @@ namespace Sharpy.Unity.Editor
                 return false;
             }
 
+            Dictionary<string, string> spyGuids = ResolveSpyGuids(root, spyAssets);
+
             string projectText = SharpyProjectFile.Build(
                 settings.RootNamespace,
                 new[] { SourceGlob },
@@ -144,7 +146,7 @@ namespace Sharpy.Unity.Editor
             string fingerprintPath = root + "/" + LibraryFolder + "/" + FingerprintFileName;
             string generatedDir = root + "/" + generatedFolder;
             string fingerprint = SharpyFingerprint.Compute(
-                projectText, CompilerVersion(settings), SyncSettings(settings), HashSources(root, spyAssets));
+                projectText, CompilerVersion(settings), SyncSettings(settings), HashSources(root, spyAssets, spyGuids));
 
             bool upToDate = !force && SharpyFingerprint.IsUpToDate(
                 File.Exists(fingerprintPath) ? File.ReadAllText(fingerprintPath) : null,
@@ -189,7 +191,7 @@ namespace Sharpy.Unity.Editor
 
             foreach (KeyValuePair<string, string> entry in staged)
             {
-                string spyGuid = SpyGuid(root, entry.Key);
+                spyGuids.TryGetValue(entry.Key, out string spyGuid);
 
                 files.Add(new SharpyGeneratedFile
                 {
@@ -473,16 +475,48 @@ namespace Sharpy.Unity.Editor
             return $"{NormalizeFolder(settings.GeneratedOutputPath)}|sourceMappedErrors={settings.SourceMappedErrors}";
         }
 
-        private static Dictionary<string, string> HashSources(string root, IEnumerable<string> spyAssets)
+        // A .spy's GUID is part of its entry: a GUID that only appears after
+        // this sync (the .spy was not importable yet) changes the fingerprint,
+        // and the next pass writes the deterministic .meta.
+        private static Dictionary<string, string> HashSources(
+            string root, IEnumerable<string> spyAssets, Dictionary<string, string> spyGuids)
         {
             var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
 
             foreach (string spy in spyAssets)
             {
-                hashes[spy] = SharpyFingerprint.Hash(File.ReadAllBytes(root + "/" + spy));
+                spyGuids.TryGetValue(spy, out string guid);
+                hashes[spy] = SharpyFingerprint.SourceEntry(SharpyFingerprint.Hash(File.ReadAllBytes(root + "/" + spy)), guid);
             }
 
             return hashes;
+        }
+
+        // A .spy written to disk but not imported yet (a focus check that runs
+        // before Unity's own refresh, a script that writes sources) has no
+        // GUID; its generated script would get a random one that scenes could
+        // start referencing. Importing it first gives it its .meta.
+        private static Dictionary<string, string> ResolveSpyGuids(string root, IEnumerable<string> spyAssets)
+        {
+            var guids = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            foreach (string spy in spyAssets)
+            {
+                string guid = SpyGuid(root, spy);
+
+                if (guid == null)
+                {
+                    AssetDatabase.ImportAsset(spy, ImportAssetOptions.ForceSynchronousImport);
+                    guid = SpyGuid(root, spy);
+                }
+
+                if (guid != null)
+                {
+                    guids[spy] = guid;
+                }
+            }
+
+            return guids;
         }
 
         // The AssetDatabase knows every imported .spy; the .meta on disk

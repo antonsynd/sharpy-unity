@@ -41,6 +41,15 @@ namespace Sharpy.Unity.Editor
             return Hash(Encoding.UTF8.GetBytes(text.ToString()));
         }
 
+        /// <summary>
+        /// A .spy's entry in <see cref="Compute"/>'s source hashes: its content
+        /// hash and its asset GUID (none yet when it has not been imported).
+        /// </summary>
+        public static string SourceEntry(string contentHash, string spyGuid)
+        {
+            return contentHash + " guid=" + (string.IsNullOrEmpty(spyGuid) ? "none" : spyGuid);
+        }
+
         /// <summary>Lowercase hex SHA-256, used for .spy contents and the fingerprint.</summary>
         public static string Hash(byte[] bytes)
         {

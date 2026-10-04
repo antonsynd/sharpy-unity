@@ -152,5 +152,31 @@ namespace Sharpy.Unity.Editor.Tests
             Assert.IsTrue(SharpyFingerprint.IsUpToDate(
                 SharpyFingerprint.Format("abc", new string[0]), "abc", path => false));
         }
+
+        [Test]
+        public void SourceEntry_GuidArrivingLater_ChangesTheFingerprint()
+        {
+            var before = new Dictionary<string, string>
+            {
+                ["Assets/new.spy"] = SharpyFingerprint.SourceEntry("aa11", null),
+            };
+            var after = new Dictionary<string, string>
+            {
+                ["Assets/new.spy"] = SharpyFingerprint.SourceEntry("aa11", "9f2c4e1a7b3d4c5e8f60718293a4b5c6"),
+            };
+
+            Assert.AreNotEqual(
+                SharpyFingerprint.Compute("p", Compiler, Sync, before),
+                SharpyFingerprint.Compute("p", Compiler, Sync, after));
+        }
+
+        [Test]
+        public void SourceEntry_SameContentAndGuid_Same()
+        {
+            Assert.AreEqual(
+                SharpyFingerprint.SourceEntry("aa11", "9f2c4e1a7b3d4c5e8f60718293a4b5c6"),
+                SharpyFingerprint.SourceEntry("aa11", "9f2c4e1a7b3d4c5e8f60718293a4b5c6"));
+            Assert.AreEqual(SharpyFingerprint.SourceEntry("aa11", null), SharpyFingerprint.SourceEntry("aa11", ""));
+        }
     }
 }
