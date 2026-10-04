@@ -58,6 +58,12 @@ The plugin ships with:
 
 The `sharpyc` compiler itself is not part of the package. On first launch the plugin offers to download the pinned release build for your platform (macOS arm64/x64, Windows x64, Linux x64/arm64) into `Library/SharpyCompiler/<version>/<platform>/` — per-project, git-ignored by Unity convention, and editor-only.
 
+## Standard Library (experimental)
+
+`Sharpy.Stdlib` (`import math`, `json`, `yaml`, `toml`, ...) is not bundled: it adds about 4 MB of DLLs, parts of it need reflection or native code, and it is untested under IL2CPP. Without it, a `.spy` file that imports a stdlib module still transpiles, but Unity fails with `error CS0234: The type or namespace name 'MathModule' does not exist in the namespace 'Sharpy'`.
+
+To opt in, run **Assets > Sharpy > Install Stdlib (experimental)**. It copies the pinned release's stdlib DLLs into `Assets/Plugins/Sharpy.Stdlib/`. `math`, `json`, `yaml` and `toml` work in the editor; `sqlite3` does not, and IL2CPP builds are unsupported. See [Documentation~/index.md](Documentation~/index.md#standard-library-experimental) for details.
+
 ## Development
 
 This is a [Unity Package Manager](https://docs.unity3d.com/Manual/CustomPackages.html) package. The structure follows UPM conventions:

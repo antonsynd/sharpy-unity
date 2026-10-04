@@ -69,6 +69,46 @@ sharpyc emit diagnostics <file.spy> --format json
 
 Exit code `0` indicates success. Exit code `1` indicates errors. Diagnostics JSON includes `severity`, `code`, `line`, `column`, `message`, and `phase` fields.
 
+## Standard Library (experimental)
+
+The package ships only `Sharpy.Core`. `Sharpy.Stdlib`, which provides Python-style modules such as `math`, `json`, `yaml` and `toml`, is not bundled. It adds about 4 MB of DLLs (MathNet.Numerics, YamlDotNet, Tomlyn, System.Text.Json, Microsoft.Data.Sqlite and others), parts of it rely on reflection or native code, and none of it is tested under IL2CPP.
+
+Without it, a `.spy` file that imports a stdlib module still transpiles, but Unity cannot compile the result:
+
+```
+error CS0234: The type or namespace name 'MathModule' does not exist in the namespace 'Sharpy' (are you missing an assembly reference?)
+```
+
+### Installing
+
+Run **Assets > Sharpy > Install Stdlib (experimental)**. It downloads `sharpy-stdlib-netstandard2.1.zip` from the sharpy release matching the pinned toolchain and copies its DLLs into `Assets/Plugins/Sharpy.Stdlib/`. Commit that folder if your team needs it. The installer skips:
+
+- DLLs the package already ships (`Sharpy.Core`, `System.Collections.Immutable`, `Microsoft.Bcl.AsyncInterfaces`, `System.Runtime.CompilerServices.Unsafe`), and `.pdb`, `.xml` and `.deps.json` files.
+- Any DLL whose file name the project already has elsewhere, such as another plugin's `System.Text.Json.dll`. Unity 6000.3 loads only one assembly per name and silently ignores the other copy, so the installer keeps the existing one and lists what it skipped in the Console. If that copy is older than the one the stdlib was built against, the modules that use it can fail at runtime.
+
+On editor load, the package warns when the installed `Sharpy.Stdlib.dll` version differs from the pinned toolchain. Run the menu item again after updating the package. Re-installing overwrites files but does not delete DLLs that an older stdlib shipped and a newer one dropped. Delete `Assets/Plugins/Sharpy.Stdlib/` first for a clean install.
+
+### Module Support
+
+Checked in the Unity 6000.3 editor (Mono). Mono players use the same runtime but were not tested separately; other modules are untested.
+
+| Module | Status |
+|--------|--------|
+| `math` | Works |
+| `json` | Works. The netstandard2.1 build uses a hand-written parser, not System.Text.Json |
+| `yaml` | Works (YamlDotNet) |
+| `toml` | Works (Tomlyn, which uses System.Text.Json) |
+| `sqlite3` | Does not work. The zip contains no native `e_sqlite3` library, and `Microsoft.Data.Sqlite` references SQLitePCLRaw 2.1 while the zip ships 3.0 |
+
+### IL2CPP
+
+IL2CPP builds are unsupported with the stdlib installed:
+
+- `yaml` uses YamlDotNet's reflection-based `Deserializer`, and the conversion to Sharpy types invokes methods through reflection.
+- `toml` calls Tomlyn's generic `TomlSerializer` entry points, which Tomlyn marks as reflection-based and unsafe for trimming and AOT.
+- `sqlite3` needs a native library.
+- `json` does not use reflection in this build, but the stdlib as a whole has not been tested under IL2CPP.
+
 ## Requirements
 
 - Unity 2022.3 LTS or later.
