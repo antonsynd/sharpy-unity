@@ -135,6 +135,59 @@ namespace Sharpy.Unity.Editor.Tests
             Assert.IsFalse(Directory.Exists(_installDir));
         }
 
+        // Zip needs no such test: ZipArchive.ExtractToDirectory already
+        // rejects "../" and absolute entries on Unity's runtime.
+        [Test]
+        public void InstallArchive_TarEntryEscapingWithDotDot_ThrowsAndWritesNothingOutside()
+        {
+            // The staging dir sits in _versionDir, so "../evil" would land there.
+            byte[] archive = TarGz(("./sharpyc", "new compiler"), ("../evil", "evil"));
+
+            Assert.Throws<InvalidDataException>(() =>
+                SharpyBinaryDownloader.InstallArchive(archive, "linux-x64", _installDir));
+
+            Assert.IsFalse(File.Exists(Path.Combine(_versionDir, "evil")));
+            Assert.IsFalse(Directory.Exists(_installDir));
+        }
+
+        [Test]
+        public void InstallArchive_TarEntryWithAbsolutePath_ThrowsAndWritesNothingOutside()
+        {
+            // Kept short: a tar name field holds 100 bytes.
+            string target = Path.Combine(Path.GetTempPath(), "sharpy-abs-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+
+            try
+            {
+                byte[] archive = TarGz(("./sharpyc", "new compiler"), (target, "evil"));
+
+                Assert.Throws<InvalidDataException>(() =>
+                    SharpyBinaryDownloader.InstallArchive(archive, "linux-x64", _installDir));
+
+                Assert.IsFalse(File.Exists(target));
+                Assert.IsFalse(Directory.Exists(_installDir));
+            }
+            finally
+            {
+                File.Delete(target);
+            }
+        }
+
+        [Test]
+        public void InstallArchive_RemovesLeftoversOfInterruptedInstalls()
+        {
+            WriteFile(Path.Combine(_versionDir, "linux-x64.staging-0123", "sharpyc"), "partial");
+            WriteFile(Path.Combine(_versionDir, "linux-x64.previous-4567", "sharpyc"), "old compiler");
+            // Another platform's leftovers are not this install's to remove.
+            string otherRid = Path.Combine(_versionDir, "win-x64.staging-89ab");
+            WriteFile(Path.Combine(otherRid, "sharpyc.exe"), "partial");
+
+            SharpyBinaryDownloader.InstallArchive(TarGz(("./sharpyc", "new compiler")), "linux-x64", _installDir);
+
+            string[] entries = Directory.GetFileSystemEntries(_versionDir);
+            Array.Sort(entries, StringComparer.Ordinal);
+            CollectionAssert.AreEqual(new[] { _installDir, otherRid }, entries);
+        }
+
         [Test]
         public void InstallArchive_MarksBinaryExecutable()
         {

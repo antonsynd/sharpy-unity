@@ -371,6 +371,7 @@ namespace Sharpy.Unity.Editor
             string stagingDir = installDir + ".staging-" + suffix;
             string previousDir = installDir + ".previous-" + suffix;
 
+            RemoveInterruptedInstalls(installDir);
             Directory.CreateDirectory(stagingDir);
 
             try
@@ -424,6 +425,30 @@ namespace Sharpy.Unity.Editor
             }
         }
 
+        // Staging and set-aside folders left by an install that was killed
+        // midway. IsCompilerInstalled ignores them, but each holds a whole
+        // compiler.
+        private static void RemoveInterruptedInstalls(string installDir)
+        {
+            string parent = Path.GetDirectoryName(installDir);
+
+            if (!Directory.Exists(parent))
+            {
+                return;
+            }
+
+            string name = Path.GetFileName(installDir);
+
+            foreach (string pattern in new[] { name + ".staging-*", name + ".previous-*" })
+            {
+                foreach (string dir in Directory.GetDirectories(parent, pattern))
+                {
+                    Debug.Log($"[Sharpy] Removing {Path.GetFileName(dir)} left by an interrupted compiler install.");
+                    TryDeleteDirectory(dir);
+                }
+            }
+        }
+
         private static void TryDeleteDirectory(string dir)
         {
             try
@@ -468,7 +493,7 @@ namespace Sharpy.Unity.Editor
                 long size = Convert.ToInt64(sizeStr, 8);
                 byte typeFlag = buffer[156];
 
-                string fullPath = Path.Combine(outputDir, name);
+                string fullPath = ResolveEntryPath(outputDir, name);
 
                 if (typeFlag == (byte)'5' || name.EndsWith("/"))
                 {
@@ -509,6 +534,23 @@ namespace Sharpy.Unity.Editor
                     }
                 }
             }
+        }
+
+        // Refuses entry names that would land outside the extraction root
+        // ("../x", absolute paths). Zip entries need no such check:
+        // ZipArchive.ExtractToDirectory already throws on them.
+        private static string ResolveEntryPath(string rootDir, string entryName)
+        {
+            string root = Path.GetFullPath(rootDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string fullPath = Path.GetFullPath(Path.Combine(root, entryName));
+            string trimmed = fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            if (trimmed != root && !fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            {
+                throw new InvalidDataException($"The compiler archive has an entry outside its root: {entryName}");
+            }
+
+            return fullPath;
         }
 
         private static int ReadFull(Stream stream, byte[] buffer, int offset, int count)
