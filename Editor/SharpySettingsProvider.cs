@@ -11,6 +11,8 @@ namespace Sharpy.Unity.Editor
         private SerializedObject serializedSettings;
         private string cachedVersion;
         private string cachedVersionPath;
+        private int derivedReferenceCount = -1;
+        private bool showReferenceDenylist;
 
         public SharpySettingsProvider(string path, SettingsScope scope)
             : base(path, scope) { }
@@ -30,6 +32,7 @@ namespace Sharpy.Unity.Editor
         public override void OnActivate(string searchContext, UnityEngine.UIElements.VisualElement rootElement)
         {
             serializedSettings = new SerializedObject(SharpySettings.instance);
+            derivedReferenceCount = -1;
         }
 
         public override void OnGUI(string searchContext)
@@ -123,6 +126,49 @@ namespace Sharpy.Unity.Editor
             EditorGUILayout.PropertyField(
                 serializedSettings.FindProperty("additionalReferences"),
                 new GUIContent("Additional References"));
+
+            EditorGUI.BeginChangeCheck();
+
+            var autoReferencesProperty = serializedSettings.FindProperty("autoUnityReferences");
+
+            EditorGUILayout.PropertyField(
+                autoReferencesProperty,
+                new GUIContent(
+                    "Derive Unity References",
+                    "Compile against the assemblies Unity gives Assembly-CSharp (engine modules, packages, plugins), minus those sharpyc cannot load."));
+
+            if (autoReferencesProperty.boolValue)
+            {
+                // Deriving walks the compilation pipeline; do it once, not per repaint.
+                if (derivedReferenceCount < 0)
+                {
+                    derivedReferenceCount = SharpyReferenceProvider.DeriveUnityReferences(SharpySettings.instance.ReferenceDenylist).Count;
+                }
+
+                EditorGUILayout.LabelField(" ", $"{derivedReferenceCount} references derived");
+
+                EditorGUI.indentLevel++;
+                showReferenceDenylist = EditorGUILayout.Foldout(
+                    showReferenceDenylist,
+                    new GUIContent(
+                        "Reference Denylist",
+                        "Assembly names (with or without .dll) to leave out of the derived references, e.g. one that crashes sharpyc."),
+                    true);
+
+                if (showReferenceDenylist)
+                {
+                    EditorGUILayout.PropertyField(
+                        serializedSettings.FindProperty("referenceDenylist"),
+                        new GUIContent("Names"));
+                }
+
+                EditorGUI.indentLevel--;
+            }
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                derivedReferenceCount = -1;
+            }
 
             EditorGUILayout.Space();
 

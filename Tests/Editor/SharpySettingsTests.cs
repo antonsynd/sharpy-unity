@@ -64,6 +64,20 @@ namespace Sharpy.Unity.Editor.Tests
         }
 
         [Test]
+        public void DefaultAutoUnityReferences_IsTrue()
+        {
+            Assert.IsTrue(SharpySettings.instance.AutoUnityReferences);
+        }
+
+        [Test]
+        public void DefaultReferenceDenylist_IsEmpty()
+        {
+            var settings = SharpySettings.instance;
+            Assert.IsNotNull(settings.ReferenceDenylist);
+            Assert.AreEqual(0, settings.ReferenceDenylist.Count);
+        }
+
+        [Test]
         public void NamespaceCollidesWithSharpy_SharpySegment_ReturnsTrue()
         {
             Assert.IsTrue(SharpySettings.NamespaceCollidesWithSharpy("Sharpy"));

@@ -16,6 +16,8 @@ namespace Sharpy.Unity.Editor
         [SerializeField] private string customCompilerPath = "";
         [SerializeField] private List<string> additionalModulePaths = new List<string>();
         [SerializeField] private List<string> additionalReferences = new List<string>();
+        [SerializeField] private bool autoUnityReferences = true;
+        [SerializeField] private List<string> referenceDenylist = new List<string>();
 
         public string GeneratedOutputPath => generatedOutputPath;
         public int CompilerTimeoutSeconds => compilerTimeoutSeconds;
@@ -24,6 +26,8 @@ namespace Sharpy.Unity.Editor
         public string CustomCompilerPath => customCompilerPath;
         public List<string> AdditionalModulePaths => additionalModulePaths;
         public List<string> AdditionalReferences => additionalReferences;
+        public bool AutoUnityReferences => autoUnityReferences;
+        public List<string> ReferenceDenylist => referenceDenylist;
 
         public void Save()
         {
