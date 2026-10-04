@@ -119,6 +119,8 @@ def _display_path(path: Path) -> Path:
 )
 def bundle_core(configuration: str):
     """Build Sharpy.Core for netstandard2.1 and copy DLLs to Plugins/."""
+    from build_tools.update_toolchain import write_dll_meta_if_missing
+
     if not SHARPY_CORE_CSPROJ.exists():
         log.error("Sharpy.Core.csproj not found at %s", SHARPY_CORE_CSPROJ)
         log.error("Ensure the sharpy repo is at %s", SHARPY_REPO)
@@ -154,6 +156,8 @@ def bundle_core(configuration: str):
         dest = PLUGINS_DIR / dll.name
         shutil.copy2(dll, dest)
         log.info("Copied %s", dll.name)
+        if write_dll_meta_if_missing(dest):
+            log.info("Created %s.meta", dll.name)
         copied += 1
 
     shutil.rmtree(REPO_ROOT / ".tmp", ignore_errors=True)

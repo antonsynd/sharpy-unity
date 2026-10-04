@@ -4,7 +4,9 @@ Downloads sharpy-core-netstandard2.1.zip for the requested release, mirrors
 its DLLs into Plugins/Sharpy.Core/, rewrites the version pin in
 Editor/SharpyToolchain.cs, regenerates the stdlib type table in
 Editor/SharpyStdlibModules.cs from sharpy-stdlib-netstandard2.1.zip, and
-records the change in CHANGELOG.md. The table needs the .NET 10 SDK
+records the change in CHANGELOG.md. A DLL the release adds gets a new
+.meta (a git-URL install skips any asset without one); existing .meta files
+are never rewritten, so GUIDs stay stable. The table needs the .NET 10 SDK
 (`dotnet run` of a single-file app).
 
 Idempotent: a second run against the same version makes no changes.
@@ -18,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 import urllib.request
+import uuid
 import zipfile
 from pathlib import Path
 
@@ -98,6 +101,10 @@ def run_update_toolchain(repo_root: Path, version: str, dry_run: bool, log) -> N
     for name, status in actions:
         log.info("  %s: %s", name, status)
 
+    for name, status in actions:
+        if status != "deleted" and not (plugins_dir / (name + ".meta")).exists():
+            log.info("  %s.meta: new guid", name)
+
     if pin_change:
         log.info("  %s: %s -> %s", TOOLCHAIN_CS_RELPATH, old_version, version)
 
@@ -125,6 +132,7 @@ def run_update_toolchain(repo_root: Path, version: str, dry_run: bool, log) -> N
                 meta.unlink()
         else:
             dest.write_bytes(zip_dlls[name])
+            write_dll_meta_if_missing(dest)
 
     if pin_change:
         content = toolchain_cs.read_text()
@@ -140,6 +148,27 @@ def run_update_toolchain(repo_root: Path, version: str, dry_run: bool, log) -> N
     _prepend_changelog_entry(changelog, old_version, version, changes, log)
 
     log.info("Toolchain refreshed to %s (%d DLL change(s)).", version, len(dll_changes))
+
+
+def dll_meta_text(guid: str) -> str:
+    """A plugin DLL's .meta in the minimal form the committed ones use.
+
+    No importer block: Unity applies its PluginImporter defaults (Any
+    Platform, Editor included), which is what a netstandard2.1 runtime
+    dependency needs.
+    """
+    return f"fileFormatVersion: 2\nguid: {guid}\n"
+
+
+def write_dll_meta_if_missing(dll: Path) -> bool:
+    """Give `dll` a .meta with a fresh guid unless it has one. True if written."""
+    meta = dll.with_name(dll.name + ".meta")
+
+    if meta.exists():
+        return False
+
+    meta.write_text(dll_meta_text(uuid.uuid4().hex))
+    return True
 
 
 def _download(url: str, log) -> bytes:
