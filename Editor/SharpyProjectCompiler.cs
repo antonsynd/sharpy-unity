@@ -271,6 +271,13 @@ namespace Sharpy.Unity.Editor
                 SharpyDiagnosticLog.Log(diagnostic);
             }
 
+            string hint = FailureHint(result.ExitCode, result.Stdout, result.Stderr);
+
+            if (hint != null)
+            {
+                Debug.LogWarning(hint);
+            }
+
             if (!ShouldSync(result.ExitCode))
             {
                 rejected = result.ExitCode > 0;
@@ -301,6 +308,16 @@ namespace Sharpy.Unity.Editor
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// The reference hint for a failed run (see
+        /// <see cref="SharpyReferenceProvider.HintFor"/>), or null. A successful
+        /// run is never hinted, whatever its output says.
+        /// </summary>
+        internal static string FailureHint(int exitCode, string stdout, string stderr)
+        {
+            return exitCode == 0 ? null : SharpyReferenceProvider.HintFor(stderr + "\n" + stdout);
         }
 
         /// <summary>sharpyc rejects a project with no source files.</summary>

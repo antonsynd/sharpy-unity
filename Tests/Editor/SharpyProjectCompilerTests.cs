@@ -149,5 +149,34 @@ namespace Sharpy.Unity.Editor.Tests
                 SharpyProjectCompiler.CompileDecision.Compile,
                 SharpyProjectCompiler.Decide(false, false, false, "fp", "fp"));
         }
+
+        private const string LoadFailure =
+            "Unexpected error: Unable to load one or more of the requested types.\n"
+            + "Could not load file or assembly 'log4net, Version=1.2.15.0'.";
+
+        [Test]
+        public void FailureHint_FailedRunThatCouldNotLoadAReference_Hints()
+        {
+            StringAssert.Contains("sharpy#2182", SharpyProjectCompiler.FailureHint(1, "", LoadFailure));
+        }
+
+        [Test]
+        public void FailureHint_LoadFailureOnStdout_Hints()
+        {
+            Assert.IsNotNull(SharpyProjectCompiler.FailureHint(3, LoadFailure, "Build FAILED."));
+        }
+
+        [Test]
+        public void FailureHint_SuccessfulRun_None()
+        {
+            Assert.IsNull(SharpyProjectCompiler.FailureHint(0, LoadFailure, LoadFailure));
+        }
+
+        [Test]
+        public void FailureHint_OrdinarySharpyError_None()
+        {
+            Assert.IsNull(SharpyProjectCompiler.FailureHint(
+                1, "", "Build FAILED.\n\nerror[SPY0222]: Type 'int32' does not support operator '+'\n"));
+        }
     }
 }
