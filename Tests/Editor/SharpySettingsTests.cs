@@ -98,5 +98,15 @@ namespace Sharpy.Unity.Editor.Tests
             Assert.IsFalse(SharpySettings.NamespaceCollidesWithSharpy("Game"));
             Assert.IsFalse(SharpySettings.NamespaceCollidesWithSharpy("MySharpy"));
         }
+
+        [TestCase(0, SharpySettings.DefaultCompilerTimeoutSeconds)]
+        [TestCase(-5, SharpySettings.DefaultCompilerTimeoutSeconds)]
+        [TestCase(1, 1)]
+        [TestCase(120, 120)]
+        [TestCase(int.MaxValue, int.MaxValue / 1000)]
+        public void EffectiveTimeout_NonPositiveIsDefault_HugeIsCapped(int configured, int expected)
+        {
+            Assert.AreEqual(expected, SharpySettings.EffectiveTimeout(configured));
+        }
     }
 }

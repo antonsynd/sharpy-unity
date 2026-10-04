@@ -2,6 +2,7 @@ namespace Sharpy.Unity.Editor
 {
     // Usings are inside the namespace so BCL names (Path, List, Math, ...) win
     // over same-named Sharpy.* root types from the referenced Sharpy.Core.dll.
+    using System;
     using System.Collections.Generic;
     using System.Globalization;
     using System.IO;
@@ -20,7 +21,9 @@ namespace Sharpy.Unity.Editor
         private const string WriteTimeKeyPrefix = "Sharpy.SettingsWriteTime:";
 
         [SerializeField] private string generatedOutputPath = "Assets/SharpyGenerated";
-        [SerializeField] private int compilerTimeoutSeconds = 30;
+        internal const int DefaultCompilerTimeoutSeconds = 30;
+
+        [SerializeField] private int compilerTimeoutSeconds = DefaultCompilerTimeoutSeconds;
         [SerializeField] private bool autoCompileOnSave = true;
         [SerializeField] private string rootNamespace = "";
         [SerializeField] private string customCompilerPath = "";
@@ -31,7 +34,7 @@ namespace Sharpy.Unity.Editor
         [SerializeField] private bool sourceMappedErrors = true;
 
         public string GeneratedOutputPath => generatedOutputPath;
-        public int CompilerTimeoutSeconds => compilerTimeoutSeconds;
+        public int CompilerTimeoutSeconds => EffectiveTimeout(compilerTimeoutSeconds);
         public bool AutoCompileOnSave => autoCompileOnSave;
         public string RootNamespace => rootNamespace;
         public string CustomCompilerPath => customCompilerPath;
@@ -150,6 +153,13 @@ namespace Sharpy.Unity.Editor
         private static string WriteTimeOf(string path)
         {
             return File.GetLastWriteTimeUtc(path).Ticks.ToString(CultureInfo.InvariantCulture);
+        }
+
+        // 0 or less (a cleared field, a hand-edited asset) means the default,
+        // not an instant timeout; the cap keeps seconds * 1000 inside an int.
+        internal static int EffectiveTimeout(int configured)
+        {
+            return configured <= 0 ? DefaultCompilerTimeoutSeconds : Math.Min(configured, int.MaxValue / 1000);
         }
 
         // A `Sharpy` segment in the root namespace shadows the Sharpy.* root
