@@ -10,7 +10,13 @@ namespace Sharpy.Unity.Editor
     /// Rewrites the <c>#line</c> directives in sharpyc's generated C# so Unity
     /// can compile them and open the right file. sharpyc emits both the classic
     /// form and the C# 10 span form, which Unity's C# 9 rejects; both become
-    /// <c>#line N "Assets/x.spy"</c> with a project-relative path.
+    /// the classic <c>#line N "path"</c>.
+    /// The project compiler passes a null project root, so paths stay absolute:
+    /// Unity resolves a relative <c>#line</c> path against the folder of the .cs
+    /// that contains it, in its compiler messages and in the PDB (stack traces)
+    /// alike, so <c>"Assets/x.spy"</c> in Assets/SharpyGenerated/Sub/y.cs means
+    /// Assets/SharpyGenerated/Sub/Assets/x.spy. Unity still shows an absolute
+    /// path inside the project as Assets/x.spy.
     /// </summary>
     internal static class SharpyLineDirectives
     {
