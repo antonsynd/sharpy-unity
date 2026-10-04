@@ -16,7 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SHARPY_REPO = REPO_ROOT.parent / "sharpy"

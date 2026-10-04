@@ -1,6 +1,6 @@
 {
   "name": "com.antonsynd.sharpy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "displayName": "Sharpy",
   "description": "Unity integration for the Sharpy programming language. Compiles .spy files to C# automatically within the Unity Editor.",
   "unity": "2022.3",

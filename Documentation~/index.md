@@ -93,7 +93,7 @@ from ..Core.greeting import greet
 
 A relative import keeps working wherever the folder ends up under `Assets/`; an imported package sample, for example, lives under a version-numbered folder.
 
-Each `.spy` file becomes a namespace made of the **Root Namespace**, its folder path from `Assets/` and its module name: `Assets/Scripts/Core/greeting.spy` → `SharpyScripts.Scripts.Core.Greeting`. Module-level functions go into a static `<Module>Module` class in that namespace (`GreetingModule.Greet`). Folder names are made into valid identifiers (`Basic Setup` → `BasicSetup`, `0.1.0` → `_010`).
+Each `.spy` file becomes a namespace made of the **Root Namespace**, its folder path from `Assets/` and its module name: `Assets/Scripts/Core/greeting.spy` → `SharpyScripts.Scripts.Core.Greeting`. Module-level functions go into a static `<Module>Module` class in that namespace (`GreetingModule.Greet`). Folder names are made into valid identifiers (`Basic Setup` → `BasicSetup`, `0.2.0` → `_020`).
 
 The `<SourceRoot>` property that pins the root at `Assets/` is honoured from sharpy 0.22.0. Older compilers root imports and namespaces at the longest common folder of all `.spy` files, which moves when you add a `.spy` in a new top-level folder; relative imports are unaffected.
 

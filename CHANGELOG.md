@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-04
+
 ### Changed
 - **Breaking** — read before upgrading a project that already uses Sharpy:
   - Generated script GUIDs change once: they are now derived from each `.spy` file's GUID, so re-link scene/prefab references to Sharpy components after the first compile (#7).
