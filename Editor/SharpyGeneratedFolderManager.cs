@@ -195,30 +195,5 @@ namespace Sharpy.Unity.Editor
 
             return Path.ChangeExtension(path, ".spy");
         }
-
-        public static void CleanEmptyDirectories()
-        {
-            string outputPath = SharpySettings.instance.GeneratedOutputPath;
-
-            if (!Directory.Exists(outputPath))
-            {
-                return;
-            }
-
-            foreach (string dir in Directory.GetDirectories(outputPath, "*", SearchOption.AllDirectories))
-            {
-                if (Directory.Exists(dir) && Directory.GetFileSystemEntries(dir).Length == 0)
-                {
-                    Directory.Delete(dir);
-
-                    string metaFile = dir + ".meta";
-
-                    if (File.Exists(metaFile))
-                    {
-                        File.Delete(metaFile);
-                    }
-                }
-            }
-        }
     }
 }

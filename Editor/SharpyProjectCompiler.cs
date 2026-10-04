@@ -22,6 +22,7 @@ namespace Sharpy.Unity.Editor
         internal const string LibraryFolder = "Library/Sharpy";
         internal const string ProjectFileName = "unity.spyproj";
         internal const string StagingFolderName = "emit";
+        internal const string FingerprintFileName = "fingerprint";
 
         // Relative to the .spyproj's folder.
         internal const string SourceGlob = "../../Assets/**/*.spy";
@@ -33,10 +34,11 @@ namespace Sharpy.Unity.Editor
         private static bool compileRequested;
 
         /// <summary>
-        /// Compiles every .spy and syncs the generated folder. Returns false
-        /// when nothing was synced (compile errors, no compiler, a compile
-        /// already running). <paramref name="force"/> is for the explicit
-        /// "Recompile All": it will bypass the up-to-date check once there is one.
+        /// Compiles every .spy and syncs the generated folder. Returns true when
+        /// the generated folder is up to date: synced now, or already matching
+        /// the stored fingerprint (skipped unless <paramref name="force"/>).
+        /// False when nothing was synced (compile errors, no compiler, a
+        /// compile already running).
         /// </summary>
         public static bool Compile(bool force = false)
         {
@@ -89,11 +91,29 @@ namespace Sharpy.Unity.Editor
                 return false;
             }
 
-            // Up-to-date check (persisted fingerprint) goes here; `force` skips it.
+            string projectText = SharpyProjectFile.Build(
+                settings.RootNamespace,
+                new[] { SourceGlob },
+                ToAbsolute(root, settings.AdditionalModulePaths),
+                ToAbsolute(root, SharpyReferenceProvider.GetReferences(settings)),
+                SourceRoot);
+
+            string fingerprintPath = root + "/" + LibraryFolder + "/" + FingerprintFileName;
+            string generatedDir = root + "/" + generatedFolder;
+            string fingerprint = SharpyFingerprint.Compute(
+                projectText, CompilerVersion(settings), SyncSettings(settings), HashSources(root, spyAssets));
+
+            if (!force && SharpyFingerprint.IsUpToDate(
+                    File.Exists(fingerprintPath) ? File.ReadAllText(fingerprintPath) : null,
+                    fingerprint,
+                    path => File.Exists(generatedDir + "/" + path)))
+            {
+                return true;
+            }
 
             var staged = new Dictionary<string, string>();
 
-            if (NeedsCompiler(spyAssets) && !BuildProject(root, settings, spyAssets, staged))
+            if (NeedsCompiler(spyAssets) && !BuildProject(root, settings, projectText, spyAssets, staged))
             {
                 return false;
             }
@@ -129,7 +149,15 @@ namespace Sharpy.Unity.Editor
                 });
             }
 
-            SharpySyncResult sync = SharpyGeneratedSync.Sync(Path.Combine(root, generatedFolder), files);
+            SharpySyncResult sync = SharpyGeneratedSync.Sync(generatedDir, files);
+
+            // Only after a successful sync: a failed compile keeps the old
+            // fingerprint (or none), so the next check tries again.
+            Directory.CreateDirectory(root + "/" + LibraryFolder);
+            File.WriteAllText(
+                fingerprintPath,
+                SharpyFingerprint.Format(fingerprint, files.ConvertAll(file => file.RelativePath)),
+                Utf8NoBom);
 
             bool stdlibInstalled = IsStdlibInstalled(CompilationPipeline.GetPrecompiledAssemblyPaths(
                 CompilationPipeline.PrecompiledAssemblySources.UserAssembly));
@@ -150,7 +178,11 @@ namespace Sharpy.Unity.Editor
         // Writes the .spyproj, runs sharpyc into a clean staging folder, logs
         // its diagnostics, and on success reads the staged C# keyed by .spy asset.
         private static bool BuildProject(
-            string root, SharpySettings settings, ICollection<string> spyAssets, Dictionary<string, string> staged)
+            string root,
+            SharpySettings settings,
+            string projectText,
+            ICollection<string> spyAssets,
+            Dictionary<string, string> staged)
         {
             SharpyBinaryDownloader.EnsureVersionChecked();
             SharpyCompilerBridge.WarnOnNamespaceCollision(settings.RootNamespace);
@@ -160,13 +192,6 @@ namespace Sharpy.Unity.Editor
             string libraryDir = root + "/" + LibraryFolder;
             string projectFile = libraryDir + "/" + ProjectFileName;
             string stagingDir = libraryDir + "/" + StagingFolderName;
-
-            string projectText = SharpyProjectFile.Build(
-                settings.RootNamespace,
-                new[] { SourceGlob },
-                ToAbsolute(root, settings.AdditionalModulePaths),
-                ToAbsolute(root, SharpyReferenceProvider.GetReferences(settings)),
-                SourceRoot);
 
             Directory.CreateDirectory(libraryDir);
             WriteIfChanged(projectFile, projectText);
@@ -312,6 +337,77 @@ namespace Sharpy.Unity.Editor
         internal static string NormalizeFolder(string folder)
         {
             return (folder ?? string.Empty).Trim().Replace('\\', '/').TrimEnd('/');
+        }
+
+        /// <summary>
+        /// Compiles when anything the output depends on changed since the last
+        /// successful compile: a .spy edited outside Unity while it was not
+        /// focused, SharpySettings.asset edited on disk, a new compiler at the
+        /// custom path. Runs on editor load and when the editor regains focus.
+        /// </summary>
+        internal static void CompileIfStale()
+        {
+            SharpySettings.RefreshFromDiskIfChanged();
+
+            // A compile ends in a script recompile and domain reload.
+            if (!SharpySettings.instance.AutoCompileOnSave
+                || EditorApplication.isPlayingOrWillChangePlaymode
+                || EditorApplication.isCompiling
+                || EditorApplication.isUpdating)
+            {
+                return;
+            }
+
+            Compile(force: false);
+        }
+
+        private const string CompilerVersionKeyPrefix = "Sharpy.CompilerVersion:";
+
+        // The managed install is the pinned version by construction. A custom
+        // compiler is asked once per session, and again when its binary changes.
+        private static string CompilerVersion(SharpySettings settings)
+        {
+            if (string.IsNullOrWhiteSpace(settings.CustomCompilerPath))
+            {
+                return "managed " + SharpyToolchain.Version;
+            }
+
+            string path = SharpyCompilerBridge.GetCompilerPath();
+
+            if (!File.Exists(path))
+            {
+                return "missing " + path;
+            }
+
+            string stamp = path + "|" + File.GetLastWriteTimeUtc(path).Ticks + "|";
+            string cached = SessionState.GetString(CompilerVersionKeyPrefix + path, "");
+
+            if (cached.StartsWith(stamp, StringComparison.Ordinal))
+            {
+                return cached.Substring(stamp.Length);
+            }
+
+            string version = SharpyCompilerBridge.GetCompilerVersion();
+            SessionState.SetString(CompilerVersionKeyPrefix + path, stamp + version);
+            return version;
+        }
+
+        // Settings the sync applies after sharpyc, which the spyproj does not hold.
+        private static string SyncSettings(SharpySettings settings)
+        {
+            return $"{NormalizeFolder(settings.GeneratedOutputPath)}|sourceMappedErrors={settings.SourceMappedErrors}";
+        }
+
+        private static Dictionary<string, string> HashSources(string root, IEnumerable<string> spyAssets)
+        {
+            var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            foreach (string spy in spyAssets)
+            {
+                hashes[spy] = SharpyFingerprint.Hash(File.ReadAllBytes(root + "/" + spy));
+            }
+
+            return hashes;
         }
 
         // The AssetDatabase knows every imported .spy; the .meta on disk
