@@ -105,7 +105,7 @@ namespace Sharpy.Unity.Editor
                     continue;
                 }
 
-                string generatedPath = SharpyGeneratedFolderManager.GetGeneratedPath(path);
+                string generatedPath = SharpyGeneratedFolderManager.FindGeneratedPath(path);
 
                 if (File.Exists(generatedPath))
                 {

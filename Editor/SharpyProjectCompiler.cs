@@ -84,18 +84,34 @@ namespace Sharpy.Unity.Editor
                 return false;
             }
 
+            var warnings = new List<string>();
+            Dictionary<string, string> scriptClasses = SharpyScriptClasses.Find(staged, IsUnityObjectType, warnings);
+            Dictionary<string, string> paths = SharpyGeneratedFolderManager.GeneratedRelativePaths(
+                staged.Keys, scriptClasses, warnings);
+
+            foreach (string warning in warnings)
+            {
+                Debug.LogWarning(warning);
+            }
+
             var files = new List<SharpyGeneratedFile>();
 
             foreach (KeyValuePair<string, string> entry in staged)
             {
+                string spyGuid = SpyGuid(root, entry.Key);
+
                 files.Add(new SharpyGeneratedFile
                 {
-                    RelativePath = SharpyGeneratedFolderManager.SpyAssetToGeneratedRelative(entry.Key),
+                    RelativePath = paths[entry.Key],
                     // Paths stay absolute: Unity resolves a relative #line path
                     // against the generated .cs's own folder, in its error
                     // messages and in stack traces alike. It shows absolute
                     // paths inside the project as Assets/... anyway.
                     Content = SharpyLineDirectives.Rewrite(entry.Value, null, settings.SourceMappedErrors),
+                    // Tied to the .spy, not to the script's path or name, so
+                    // scene references survive a regenerate, a fresh clone, a
+                    // move or a class rename.
+                    MetaGuid = spyGuid == null ? null : SharpyGeneratedMeta.GuidFor(spyGuid),
                 });
             }
 
@@ -229,6 +245,41 @@ namespace Sharpy.Unity.Editor
         internal static string NormalizeFolder(string folder)
         {
             return (folder ?? string.Empty).Trim().Replace('\\', '/').TrimEnd('/');
+        }
+
+        // The AssetDatabase knows every imported .spy; the .meta on disk
+        // covers one it has not imported yet (batch mode, a fresh clone).
+        private static string SpyGuid(string root, string spyAsset)
+        {
+            string guid = AssetDatabase.AssetPathToGUID(spyAsset);
+
+            if (!string.IsNullOrEmpty(guid))
+            {
+                return guid;
+            }
+
+            string metaPath = root + "/" + spyAsset + ".meta";
+
+            return File.Exists(metaPath) && SharpyGeneratedMeta.TryReadGuid(File.ReadAllText(metaPath), out guid)
+                ? guid
+                : null;
+        }
+
+        // A base class from a package or plugin (e.g. a NetworkBehaviour).
+        private static bool IsUnityObjectType(string fullName)
+        {
+            foreach (System.Reflection.Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type type = assembly.GetType(fullName, false);
+
+                if (type != null)
+                {
+                    return typeof(MonoBehaviour).IsAssignableFrom(type)
+                        || typeof(ScriptableObject).IsAssignableFrom(type);
+                }
+            }
+
+            return false;
         }
 
         // Unity's working directory is the project root.

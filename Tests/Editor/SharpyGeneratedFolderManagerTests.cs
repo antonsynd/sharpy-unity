@@ -2,6 +2,7 @@ namespace Sharpy.Unity.Editor.Tests
 {
     // Usings are inside the namespace so BCL names (Path, List, Math, ...) win
     // over same-named Sharpy.* root types from the referenced Sharpy.Core.dll.
+    using System.Collections.Generic;
     using NUnit.Framework;
 
     public class SharpyGeneratedFolderManagerTests
@@ -61,6 +62,56 @@ namespace Sharpy.Unity.Editor.Tests
             Assert.AreEqual(
                 generated.Replace('\\', '/'),
                 SharpyGeneratedFolderManager.SpyAssetToGeneratedRelative(spyAsset));
+        }
+
+        [TestCase("Assets/Scripts/Smoke/smoke_behaviour.spy", "SmokeBehaviour", "Scripts/Smoke/SmokeBehaviour.cs")]
+        [TestCase("Assets/top.spy", "Top", "Top.cs")]
+        [TestCase("Assets/My Scripts/smoke behaviour.spy", "SmokeBehaviour", "My Scripts/SmokeBehaviour.cs")]
+        public void SpyAssetToGeneratedRelative_ScriptClass_NamesTheFileAfterIt(string spyAsset, string scriptClass, string generated)
+        {
+            Assert.AreEqual(generated, SharpyGeneratedFolderManager.SpyAssetToGeneratedRelative(spyAsset, scriptClass));
+        }
+
+        [Test]
+        public void GeneratedRelativePaths_SameBasenameInTwoFolders_StayApart()
+        {
+            var paths = SharpyGeneratedFolderManager.GeneratedRelativePaths(
+                new[] { "Assets/Scripts/Ui/greeting.spy", "Assets/Scripts/Core/greeting.spy" },
+                new Dictionary<string, string>(),
+                new List<string>());
+
+            Assert.AreEqual("Scripts/Core/greeting.cs", paths["Assets/Scripts/Core/greeting.spy"]);
+            Assert.AreEqual("Scripts/Ui/greeting.cs", paths["Assets/Scripts/Ui/greeting.spy"]);
+        }
+
+        [Test]
+        public void GeneratedRelativePaths_ScriptClass_NamesItsFile()
+        {
+            var paths = SharpyGeneratedFolderManager.GeneratedRelativePaths(
+                new[] { "Assets/Scripts/Smoke/smoke_behaviour.spy", "Assets/Scripts/Core/greeting.spy" },
+                new Dictionary<string, string> { ["Assets/Scripts/Smoke/smoke_behaviour.spy"] = "SmokeBehaviour" },
+                new List<string>());
+
+            Assert.AreEqual("Scripts/Smoke/SmokeBehaviour.cs", paths["Assets/Scripts/Smoke/smoke_behaviour.spy"]);
+            Assert.AreEqual("Scripts/Core/greeting.cs", paths["Assets/Scripts/Core/greeting.spy"]);
+        }
+
+        [Test]
+        public void GeneratedRelativePaths_ClassNameTakenByAnotherModule_KeepsModuleName_Warns()
+        {
+            var warnings = new List<string>();
+
+            // hero.spy's class Player would be Scripts/Player.cs, which player.spy
+            // (no MonoBehaviour) already is on a case-insensitive file system.
+            var paths = SharpyGeneratedFolderManager.GeneratedRelativePaths(
+                new[] { "Assets/Scripts/hero.spy", "Assets/Scripts/player.spy" },
+                new Dictionary<string, string> { ["Assets/Scripts/hero.spy"] = "Player" },
+                warnings);
+
+            Assert.AreEqual("Scripts/hero.cs", paths["Assets/Scripts/hero.spy"]);
+            Assert.AreEqual("Scripts/player.cs", paths["Assets/Scripts/player.spy"]);
+            Assert.AreEqual(1, warnings.Count);
+            StringAssert.Contains("Assets/Scripts/hero.spy", warnings[0]);
         }
 
         // sharpyc HEAD stages Assets/Scripts/Core/greeting.spy as

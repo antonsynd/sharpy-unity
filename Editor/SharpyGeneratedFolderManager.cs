@@ -2,6 +2,8 @@ namespace Sharpy.Unity.Editor
 {
     // Usings are inside the namespace so BCL names (Path, List, Math, ...) win
     // over same-named Sharpy.* root types from the referenced Sharpy.Core.dll.
+    using System;
+    using System.Collections.Generic;
     using System.IO;
     using UnityEditor;
     using UnityEngine;
@@ -33,6 +35,10 @@ namespace Sharpy.Unity.Editor
 
         private const string AssetsPrefix = "Assets/";
 
+        /// <summary>
+        /// The module-named path of a .spy's generated script. A script named
+        /// after its MonoBehaviour class is elsewhere; see <see cref="FindGeneratedPath"/>.
+        /// </summary>
         public static string GetGeneratedPath(string spyAssetPath)
         {
             string outputRoot = SharpySettings.instance.GeneratedOutputPath;
@@ -40,11 +46,36 @@ namespace Sharpy.Unity.Editor
         }
 
         /// <summary>
-        /// Assets/Scripts/Core/greeting.spy → Scripts/Core/greeting.cs, the
-        /// script's path under the generated folder. A path outside Assets/
-        /// is kept whole.
+        /// The generated script of a .spy as an asset path, found through the
+        /// GUID its .meta derives from the .spy's, so a script named after its
+        /// class is found too. Falls back to <see cref="GetGeneratedPath"/>.
         /// </summary>
-        internal static string SpyAssetToGeneratedRelative(string spyAssetPath)
+        public static string FindGeneratedPath(string spyAssetPath)
+        {
+            string spyGuid = AssetDatabase.AssetPathToGUID(spyAssetPath);
+
+            if (!string.IsNullOrEmpty(spyGuid))
+            {
+                string generated = AssetDatabase.GUIDToAssetPath(SharpyGeneratedMeta.GuidFor(spyGuid));
+
+                if (!string.IsNullOrEmpty(generated))
+                {
+                    return generated;
+                }
+            }
+
+            return GetGeneratedPath(spyAssetPath);
+        }
+
+        /// <summary>
+        /// Assets/Scripts/Core/greeting.spy → Scripts/Core/greeting.cs, the
+        /// script's path under the generated folder. With
+        /// <paramref name="scriptClass"/>, the file is named after that class
+        /// instead (Scripts/Smoke/SmokeBehaviour.cs), which Unity needs to
+        /// bind a MonoBehaviour or ScriptableObject to the script. A path
+        /// outside Assets/ is kept whole.
+        /// </summary>
+        internal static string SpyAssetToGeneratedRelative(string spyAssetPath, string scriptClass = null)
         {
             string relativePath = spyAssetPath.Replace('\\', '/');
 
@@ -53,12 +84,69 @@ namespace Sharpy.Unity.Editor
                 relativePath = relativePath.Substring(AssetsPrefix.Length);
             }
 
-            return Path.ChangeExtension(relativePath, ".cs");
+            if (string.IsNullOrEmpty(scriptClass))
+            {
+                return Path.ChangeExtension(relativePath, ".cs");
+            }
+
+            int slash = relativePath.LastIndexOf('/');
+            return relativePath.Substring(0, slash + 1) + scriptClass + ".cs";
         }
 
         /// <summary>
-        /// Inverse of <see cref="SpyAssetToGeneratedRelative"/> for scripts
-        /// under Assets/: Scripts/Core/greeting.cs → Assets/Scripts/Core/greeting.spy.
+        /// The generated path of every .spy: named after its class when
+        /// <paramref name="scriptClasses"/> has one, otherwise after the module.
+        /// A class name that would take another script's path (file names
+        /// compare case-insensitively) keeps the module name, with a warning.
+        /// </summary>
+        internal static Dictionary<string, string> GeneratedRelativePaths(
+            IEnumerable<string> spyAssets, IDictionary<string, string> scriptClasses, List<string> warnings)
+        {
+            var sorted = new List<string>(spyAssets);
+            sorted.Sort(StringComparer.Ordinal);
+
+            var result = new Dictionary<string, string>(StringComparer.Ordinal);
+            var taken = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            // Module-named scripts first, so a class name never displaces one.
+            foreach (string spy in sorted)
+            {
+                if (!scriptClasses.ContainsKey(spy))
+                {
+                    string path = SpyAssetToGeneratedRelative(spy);
+                    result[spy] = path;
+                    taken[path] = spy;
+                }
+            }
+
+            foreach (string spy in sorted)
+            {
+                if (!scriptClasses.TryGetValue(spy, out string scriptClass))
+                {
+                    continue;
+                }
+
+                string path = SpyAssetToGeneratedRelative(spy, scriptClass);
+
+                if (taken.TryGetValue(path, out string other))
+                {
+                    warnings.Add(
+                        $"[Sharpy] {spy}: its script cannot be named {scriptClass}.cs, which {other} already uses, "
+                        + $"so the {scriptClass} component cannot be added. Rename the class or one of the files.");
+                    path = SpyAssetToGeneratedRelative(spy);
+                }
+
+                result[spy] = path;
+                taken[path] = spy;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Inverse of <see cref="SpyAssetToGeneratedRelative"/> for module-named
+        /// scripts under Assets/: Scripts/Core/greeting.cs → Assets/Scripts/Core/greeting.spy.
+        /// A script named after its class maps back only through its GUID.
         /// </summary>
         internal static string GeneratedRelativeToSpyAsset(string generatedRelativePath)
         {
