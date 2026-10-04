@@ -268,6 +268,27 @@ def smoke_compile(unity_path, unity_version):
 
 
 # ---------------------------------------------------------------------------
+# smoke-sample
+# ---------------------------------------------------------------------------
+
+
+@main.command("smoke-sample")
+@click.option("--unity-path", default=None, help="Path to a Unity editor's Managed directory.")
+@click.option(
+    "--unity-version",
+    default=None,
+    help="That editor's version (e.g. 2022.3.22f1) when its path does not show it.",
+)
+@click.option("--sharpyc", default=None, help="Use this sharpyc instead of downloading the pinned one.")
+@click.option("--sample", default=None, help="Sample Scripts folder (default: Samples~/BasicSetup/Scripts).")
+def smoke_sample(unity_path, unity_version, sharpyc, sample):
+    """Compile the BasicSetup sample with the pinned sharpyc, then Unity's csc."""
+    from build_tools.smoke_sample import run_smoke_sample
+
+    sys.exit(run_smoke_sample(unity_path, unity_version, sharpyc, sample))
+
+
+# ---------------------------------------------------------------------------
 # check-metas
 # ---------------------------------------------------------------------------
 

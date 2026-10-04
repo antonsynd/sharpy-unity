@@ -83,10 +83,18 @@ jobs:
           PYTHONPATH: Tools~
         run: python3 -m build_tools.smoke_compile --unity-path /opt/unity/Editor/Data/Managed --unity-version 2022.3.22f1
 
+      # Downloads the pinned sharpyc (SharpyToolchain.Version), compiles
+      # Samples~/BasicSetup as the package would inside Unity, and builds the
+      # output with the editor's own Roslyn at C# 9.
+      - name: Compile the BasicSetup sample with the pinned sharpyc
+        env:
+          PYTHONPATH: Tools~
+        run: python3 -m build_tools.smoke_sample --unity-path /opt/unity/Editor/Data/Managed --unity-version 2022.3.22f1
+
       - name: Show Unity layout (diagnostics)
         if: failure()
         run: |
-          find /opt/unity -maxdepth 5 -type d \( -name Managed -o -name BuiltInPackages \) 2>/dev/null
+          find /opt/unity -maxdepth 5 -type d \( -name Managed -o -name BuiltInPackages -o -name DotNetSdkRoslyn -o -name NetCoreRuntime \) 2>/dev/null
           find /opt/unity -name nunit.framework.dll 2>/dev/null
 
   test:
