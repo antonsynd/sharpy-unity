@@ -56,5 +56,55 @@ namespace Sharpy.Unity.Editor.Tests
                 "Assets/Scripts/a.spy",
                 SharpyProjectCompiler.CheckGeneratedFolder("Assets/Scripts", new[] { "Assets/Scripts/a.spy" }));
         }
+
+        [Test]
+        public void IsStdlibInstalled_MatchesTheFileName()
+        {
+            Assert.IsTrue(SharpyProjectCompiler.IsStdlibInstalled(new[]
+            {
+                "/proj/Assets/Plugins/Sharpy.Stdlib/Tomlyn.dll",
+                "/proj/Assets/Plugins/Sharpy.Stdlib/sharpy.stdlib.DLL",
+            }));
+        }
+
+        [Test]
+        public void IsStdlibInstalled_OnlyOtherSharpyAssemblies_False()
+        {
+            Assert.IsFalse(SharpyProjectCompiler.IsStdlibInstalled(new[]
+            {
+                "/proj/Packages/com.antonsynd.sharpy/Plugins/Sharpy.Core/Sharpy.Core.dll",
+                "/proj/Assets/Plugins/Sharpy.Stdlib.Extras.dll",
+            }));
+        }
+
+        private const string MathModuleCs =
+            "#line 1 \"/proj/Assets/Scripts/Sharpy/Json/x.spy\"\r\n"
+            + "using math = global::Sharpy.MathModule.MathModuleModule;\r\n";
+
+        [Test]
+        public void StdlibWarnings_NotInstalled_OnePerSpyUsingTheStdlib()
+        {
+            var generated = new Dictionary<string, string>
+            {
+                ["Assets/b.spy"] = MathModuleCs,
+                ["Assets/a.spy"] = MathModuleCs + "var d = new global::Sharpy.Deque<int>();\r\n",
+                ["Assets/plain.spy"] = "using global::Sharpy;\r\nglobal::Sharpy.Builtins.Print(1);\r\n",
+            };
+
+            List<string> warnings = SharpyProjectCompiler.StdlibWarnings(generated, false);
+
+            Assert.AreEqual(2, warnings.Count);
+            StringAssert.StartsWith("[Sharpy] Assets/a.spy:", warnings[0]);
+            StringAssert.StartsWith("[Sharpy] Assets/b.spy:", warnings[1]);
+            StringAssert.Contains("'math'", warnings[1]);
+        }
+
+        [Test]
+        public void StdlibWarnings_Installed_None()
+        {
+            var generated = new Dictionary<string, string> { ["Assets/a.spy"] = MathModuleCs };
+
+            CollectionAssert.IsEmpty(SharpyProjectCompiler.StdlibWarnings(generated, true));
+        }
     }
 }

@@ -7,6 +7,7 @@ namespace Sharpy.Unity.Editor
     using System.IO;
     using System.Text;
     using UnityEditor;
+    using UnityEditor.Compilation;
     using UnityEngine;
 
     /// <summary>
@@ -117,6 +118,14 @@ namespace Sharpy.Unity.Editor
 
             SharpySyncResult sync = SharpyGeneratedSync.Sync(Path.Combine(root, generatedFolder), files);
 
+            bool stdlibInstalled = IsStdlibInstalled(CompilationPipeline.GetPrecompiledAssemblyPaths(
+                CompilationPipeline.PrecompiledAssemblySources.UserAssembly));
+
+            foreach (string warning in StdlibWarnings(staged, stdlibInstalled))
+            {
+                Debug.LogWarning(warning);
+            }
+
             if (sync.Changed)
             {
                 AssetDatabase.Refresh();
@@ -212,6 +221,51 @@ namespace Sharpy.Unity.Editor
         internal static bool ShouldSync(int exitCode)
         {
             return exitCode == 0;
+        }
+
+        /// <summary>Whether Sharpy.Stdlib.dll is among the project's own precompiled assemblies.</summary>
+        internal static bool IsStdlibInstalled(IEnumerable<string> precompiledAssemblyPaths)
+        {
+            foreach (string path in precompiledAssemblyPaths)
+            {
+                if (string.Equals(Path.GetFileName(path), "Sharpy.Stdlib.dll", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// One warning per .spy whose generated C# needs stdlib modules, unless
+        /// Sharpy.Stdlib.dll is installed. sharpyc compiles against its own
+        /// copy, so without this Unity only reports CS0246/CS0234 in the
+        /// generated code.
+        /// </summary>
+        internal static List<string> StdlibWarnings(IDictionary<string, string> generatedBySpy, bool stdlibInstalled)
+        {
+            var warnings = new List<string>();
+
+            if (stdlibInstalled)
+            {
+                return warnings;
+            }
+
+            var spyAssets = new List<string>(generatedBySpy.Keys);
+            spyAssets.Sort(StringComparer.Ordinal);
+
+            foreach (string spy in spyAssets)
+            {
+                List<string> modules = SharpyStdlibDetector.FindModules(generatedBySpy[spy]);
+
+                if (modules.Count > 0)
+                {
+                    warnings.Add(SharpyStdlibDetector.FormatWarning(spy, modules));
+                }
+            }
+
+            return warnings;
         }
 
         /// <summary>
