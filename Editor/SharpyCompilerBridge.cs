@@ -219,6 +219,15 @@ namespace Sharpy.Unity.Editor
         {
             string compilerPath = GetCompilerPath();
 
+            // Fallback for batch runs that reach a compile before the
+            // editor-load install ran (e.g. settings could not load yet).
+            if (!File.Exists(compilerPath)
+                && Application.isBatchMode
+                && compilerPath == GetManagedCompilerPath())
+            {
+                SharpyBinaryDownloader.InstallInBatchModeOnce();
+            }
+
             if (!File.Exists(compilerPath))
             {
                 return new CompileResult

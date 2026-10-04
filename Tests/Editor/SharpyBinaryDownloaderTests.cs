@@ -9,6 +9,7 @@ namespace Sharpy.Unity.Editor.Tests
     using System.Text;
     using NUnit.Framework;
     using UnityEngine;
+    using InstallAction = SharpyBinaryDownloader.InstallAction;
 
     public class SharpyBinaryDownloaderTests
     {
@@ -31,6 +32,38 @@ namespace Sharpy.Unity.Editor.Tests
             {
                 Directory.Delete(_root, true);
             }
+        }
+
+        // isBatchMode, hasCustomPath, installed, versionMatches → expected.
+        // (The enum is internal, so it cannot be a public test parameter.)
+        [Test]
+        public void DecideInstall_ManagedCompilerMissing_InstallsInBatchModeOnly()
+        {
+            Assert.AreEqual(InstallAction.InstallNow, SharpyBinaryDownloader.DecideInstall(true, false, false, true));
+            Assert.AreEqual(InstallAction.Prompt, SharpyBinaryDownloader.DecideInstall(false, false, false, true));
+        }
+
+        [Test]
+        public void DecideInstall_ManagedCompilerMismatched_InstallsInBatchModeOnly()
+        {
+            Assert.AreEqual(InstallAction.InstallNow, SharpyBinaryDownloader.DecideInstall(true, false, true, false));
+            Assert.AreEqual(InstallAction.Prompt, SharpyBinaryDownloader.DecideInstall(false, false, true, false));
+        }
+
+        [Test]
+        public void DecideInstall_ManagedCompilerCurrent_DoesNothing()
+        {
+            Assert.AreEqual(InstallAction.None, SharpyBinaryDownloader.DecideInstall(true, false, true, true));
+            Assert.AreEqual(InstallAction.None, SharpyBinaryDownloader.DecideInstall(false, false, true, true));
+        }
+
+        [Test]
+        public void DecideInstall_CustomPath_NeverInstalls()
+        {
+            // installed is false: the managed install is irrelevant once a custom path is set.
+            Assert.AreEqual(InstallAction.None, SharpyBinaryDownloader.DecideInstall(true, true, false, true));
+            Assert.AreEqual(InstallAction.Warn, SharpyBinaryDownloader.DecideInstall(true, true, false, false));
+            Assert.AreEqual(InstallAction.Warn, SharpyBinaryDownloader.DecideInstall(false, true, false, false));
         }
 
         [Test]

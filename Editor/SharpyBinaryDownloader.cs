@@ -17,36 +17,99 @@ namespace Sharpy.Unity.Editor
         {
             CleanupLegacyPackageBinaries();
 
-            // Deferred so SharpySettings isn't loaded during InitializeOnLoad.
-            EditorApplication.delayCall += AutoInstallIfNeeded;
+            if (!Application.isBatchMode)
+            {
+                // Deferred so the prompt appears once the editor is up.
+                EditorApplication.delayCall += AutoInstallIfNeeded;
+            }
+        }
+
+        // `-batchmode -quit` exits before delayCall or an async continuation
+        // ever runs, so batch mode installs during domain load. Not from the
+        // static constructor: the install's worker thread calls back into
+        // this class and would block on the type-initialization lock that
+        // the constructor holds while it waits for that worker.
+        [InitializeOnLoadMethod]
+        private static void InstallOnLoadInBatchMode()
+        {
+            if (Application.isBatchMode)
+            {
+                AutoInstallIfNeeded();
+            }
+        }
+
+        internal enum InstallAction
+        {
+            None,
+            InstallNow,
+            Prompt,
+            Warn
+        }
+
+        // What to do about the compiler, given what is known so far
+        // (versionMatches is false only when a check found another version).
+        // A custom compiler path opts out of the managed install, so a
+        // mismatch there only warns. A missing or mismatched managed install
+        // is installed on the spot in batch mode and prompted for otherwise.
+        internal static InstallAction DecideInstall(
+            bool isBatchMode, bool hasCustomPath, bool installed, bool versionMatches)
+        {
+            if (hasCustomPath)
+            {
+                return versionMatches ? InstallAction.None : InstallAction.Warn;
+            }
+
+            if (installed && versionMatches)
+            {
+                return InstallAction.None;
+            }
+
+            return isBatchMode ? InstallAction.InstallNow : InstallAction.Prompt;
         }
 
         private static void AutoInstallIfNeeded()
         {
-            // A custom compiler path opts out of the managed install; a
-            // version mismatch there only warns.
-            if (!string.IsNullOrWhiteSpace(SharpySettings.instance.CustomCompilerPath))
+            bool hasCustomPath;
+
+            try
             {
-                EnsureVersionChecked();
+                hasCustomPath = !string.IsNullOrWhiteSpace(SharpySettings.instance.CustomCompilerPath);
+            }
+            catch (Exception ex)
+            {
+                // RunCompiler still installs lazily in batch mode.
+                Debug.LogWarning($"[Sharpy] Could not read settings to check the compiler install: {ex.Message}");
                 return;
             }
 
-            if (!IsCompilerInstalled())
+            switch (DecideInstall(Application.isBatchMode, hasCustomPath, IsCompilerInstalled(), true))
             {
-                if (Application.isBatchMode)
-                {
+                case InstallAction.InstallNow:
                     Debug.Log("[Sharpy] Compiler not installed; downloading automatically (batch mode).");
-                    DownloadCompilerAsync();
-                }
-                else
-                {
+                    InstallInBatchModeOnce();
+                    break;
+                case InstallAction.Prompt:
                     PromptDownload();
-                }
+                    break;
+                default:
+                    EnsureVersionChecked();
+                    break;
+            }
+        }
 
+        private const string BatchInstallAttemptedSessionKey = "Sharpy.BatchInstallAttempted";
+
+        // At most one automatic attempt per editor session, so an offline
+        // batch run fails once instead of once per domain reload or per file.
+        internal static void InstallInBatchModeOnce()
+        {
+            if (SessionState.GetBool(BatchInstallAttemptedSessionKey, false))
+            {
                 return;
             }
 
-            EnsureVersionChecked();
+            SessionState.SetBool(BatchInstallAttemptedSessionKey, true);
+            InstallBlocking();
         }
 
         private const string VersionCheckedSessionKey = "Sharpy.VersionGuardChecked";
@@ -84,19 +147,17 @@ namespace Sharpy.Unity.Editor
                 return;
             }
 
-            if (isCustom)
+            switch (DecideInstall(Application.isBatchMode, isCustom, true, false))
             {
-                Debug.LogWarning(
-                    $"[Sharpy] Custom compiler is {semver}, but this package pins {SharpyToolchain.Version}. "
-                    + "Generated code may not match the bundled Sharpy.Core.dll.");
-                return;
-            }
-
-            if (Application.isBatchMode)
-            {
-                Debug.Log($"[Sharpy] Installed compiler is {semver}; downloading pinned {SharpyToolchain.Version}.");
-                DownloadCompilerAsync();
-                return;
+                case InstallAction.Warn:
+                    Debug.LogWarning(
+                        $"[Sharpy] Custom compiler is {semver}, but this package pins {SharpyToolchain.Version}. "
+                        + "Generated code may not match the bundled Sharpy.Core.dll.");
+                    return;
+                case InstallAction.InstallNow:
+                    Debug.Log($"[Sharpy] Installed compiler is {semver}; downloading pinned {SharpyToolchain.Version}.");
+                    InstallInBatchModeOnce();
+                    return;
             }
 
             bool redownload = EditorUtility.DisplayDialog(
@@ -123,7 +184,7 @@ namespace Sharpy.Unity.Editor
         {
             if (Application.isBatchMode)
             {
-                DownloadCompilerAsync();
+                InstallBlocking();
                 return;
             }
 
