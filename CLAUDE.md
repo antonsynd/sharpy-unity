@@ -71,6 +71,7 @@ Tools~/build_tools/          # Python CLI (in a `~` folder so Unity skips it): D
 | `SharpyDiagnosticLog` | `Editor/SharpyDiagnosticLog.cs` | Logs diagnostics so double-click opens the `.spy` line |
 | `SharpyDiagnostic` | `Editor/SharpyDiagnostic.cs` | One parsed diagnostic |
 | `SharpyReferenceProvider` | `Editor/SharpyReferenceProvider.cs` | Derives Unity references; denylist and sharpy#2182 exclusions |
+| `SharpyGeneratedOwnership` | `Editor/SharpyGeneratedOwnership.cs` | Validates the Generated Output Path and claims the folder via a marker `.gitignore`; retires the old folder when the path changes |
 | `SharpyGeneratedSync` | `Editor/SharpyGeneratedSync.cs` | Makes the generated folder hold exactly the staged scripts (file system only) |
 | `SharpyScriptClasses` | `Editor/SharpyScriptClasses.cs` | Finds the MonoBehaviour/ScriptableObject class a script must be named after |
 | `SharpyGeneratedMeta` | `Editor/SharpyGeneratedMeta.cs` | Deterministic `.meta` GUID and text from the `.spy` GUID |
@@ -81,7 +82,7 @@ Tools~/build_tools/          # Python CLI (in a `~` folder so Unity skips it): D
 | `SharpyGeneratedFolderManager` | `Editor/SharpyGeneratedFolderManager.cs` | Generated folder lifecycle and `.spy` ↔ generated path mapping |
 | `SharpySettings` | `Editor/SharpySettings.cs` | Project-level settings (ScriptableSingleton), reloaded when edited on disk |
 | `SharpySettingsProvider` | `Editor/SharpySettingsProvider.cs` | Settings UI in Project Settings window |
-| `SharpyMenuItems` | `Editor/SharpyMenuItems.cs` | Recompile All, Clean Generated (also clears `Library/Sharpy/`), View Generated C# |
+| `SharpyMenuItems` | `Editor/SharpyMenuItems.cs` | Recompile All, Clean Generated (generated files only, plus `Library/Sharpy/`), View Generated C# |
 | `SharpyBatch` | `Editor/SharpyBatch.cs` | `-executeMethod` entry point for headless regeneration (CI) |
 | `SharpyStdlibInstaller` | `Editor/SharpyStdlibInstaller.cs` | Opt-in Sharpy.Stdlib install into `Assets/Plugins/Sharpy.Stdlib/`, version check |
 | `SharpyStdlibDetector` / `SharpyStdlibModules` | `Editor/SharpyStdlibDetector.cs`, `Editor/SharpyStdlibModules.cs` | Warn when generated code needs stdlib modules that are not installed |

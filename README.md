@@ -46,9 +46,9 @@ Imports are spelled from `Assets/`: `Assets/Scripts/Core/greeting.spy` is `Scrip
 Open **Edit > Project Settings > Sharpy** to configure:
 
 - **Custom Compiler Path** — absolute path to a `sharpyc` binary, overriding the managed install
-- **Timeout (seconds)** — limit for one whole-project compile (default 30)
+- **Timeout (seconds)** — limit for one whole-project compile (default 30; 0 or less means the default)
 - **Auto-compile on Save** — compile on `.spy` changes, and on editor load or focus when sources, settings or the compiler changed
-- **Generated Output Path** — folder under `Assets/` the generated C# is synced into; every `.cs` in it is replaced
+- **Generated Output Path** — a dedicated folder inside `Assets/` for the generated C#. Sharpy marks it with a `.gitignore` and refuses a non-empty folder it does not own. A new path is applied on Enter or when the field loses focus; the next successful compile removes the generated files from the old folder
 - **Source-mapped errors** — keep `#line` directives so errors and stack traces name `.spy` lines (default on)
 - **Root Namespace** — first namespace segment of generated code (default `SharpyScripts` when empty)
 - **Additional Module Paths** — extra folders to resolve Sharpy imports from
@@ -60,9 +60,9 @@ Settings edited outside the editor (a text editor, `git pull`) are picked up whe
 ### Menu Items
 
 - **Assets > Sharpy > Recompile All** — compile every `.spy` now, even if nothing changed
-- **Assets > Sharpy > Clean Generated** — delete the generated C# and the compiler's working folder `Library/Sharpy/`
+- **Assets > Sharpy > Clean Generated** — delete the generated `.cs`/`.meta` files (and folders left empty) and the compiler's working folder `Library/Sharpy/`
 - **Assets > Sharpy > View Generated C#** — open the generated script of the selected `.spy`
-- **Assets > Sharpy > Download Compiler** — install the pinned `sharpyc`
+- **Assets > Sharpy > Download Compiler** — install the pinned `sharpyc`, then compile
 - **Assets > Sharpy > Install Stdlib (experimental)** — see [Standard Library](#standard-library-experimental)
 
 ## How It Works
