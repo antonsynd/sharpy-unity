@@ -30,6 +30,7 @@ namespace Sharpy.Unity.Editor
         private static readonly UTF8Encoding Utf8NoBom = new UTF8Encoding(false);
 
         private static bool compiling;
+        private static bool compileRequested;
 
         /// <summary>
         /// Compiles every .spy and syncs the generated folder. Returns false
@@ -40,9 +41,11 @@ namespace Sharpy.Unity.Editor
         public static bool Compile(bool force = false)
         {
             // The Refresh at the end imports the generated scripts, which runs
-            // the asset postprocessor again inside this call.
+            // the asset postprocessor again inside this call. A .spy picked up
+            // by that import is compiled once this pass is done.
             if (compiling)
             {
+                compileRequested = true;
                 return false;
             }
 
@@ -50,7 +53,17 @@ namespace Sharpy.Unity.Editor
 
             try
             {
-                return CompileAndSync(force);
+                bool result;
+                int passes = 0;
+
+                do
+                {
+                    compileRequested = false;
+                    result = CompileAndSync(force);
+                }
+                while (compileRequested && ++passes < 3);
+
+                return result;
             }
             finally
             {

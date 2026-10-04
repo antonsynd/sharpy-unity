@@ -37,7 +37,7 @@ namespace Sharpy.Unity.Editor
 
             EditorGUILayout.Space();
 
-            string generatedPath = SharpyGeneratedFolderManager.GetGeneratedPath(path);
+            string generatedPath = SharpyGeneratedFolderManager.FindGeneratedPath(path);
             bool hasGenerated = File.Exists(generatedPath);
 
             EditorGUILayout.LabelField("Generated C#", EditorStyles.boldLabel);
@@ -50,45 +50,10 @@ namespace Sharpy.Unity.Editor
 
             EditorGUILayout.Space();
 
-            if (GUILayout.Button("Recompile"))
+            // A .spy compiles only as part of the whole project.
+            if (GUILayout.Button("Recompile All"))
             {
-                string outputDir = Path.GetDirectoryName(generatedPath);
-
-                if (!string.IsNullOrEmpty(outputDir))
-                {
-                    Directory.CreateDirectory(outputDir);
-                }
-
-                var result = SharpyCompilerBridge.CompileFile(path, generatedPath);
-
-                if (result.Success)
-                {
-                    AssetDatabase.Refresh();
-                    Debug.Log($"[Sharpy] Recompiled {path}");
-                }
-                else
-                {
-                    foreach (var diagnostic in result.Diagnostics)
-                    {
-                        switch (diagnostic.ToUnityLogType())
-                        {
-                            case LogType.Error:
-                                Debug.LogError($"[Sharpy] {diagnostic.Code}: {diagnostic.Message}");
-                                break;
-                            case LogType.Warning:
-                                Debug.LogWarning($"[Sharpy] {diagnostic.Code}: {diagnostic.Message}");
-                                break;
-                            default:
-                                Debug.Log($"[Sharpy] {diagnostic.Code}: {diagnostic.Message}");
-                                break;
-                        }
-                    }
-
-                    if (result.Diagnostics.Count == 0 && !string.IsNullOrEmpty(result.Stderr))
-                    {
-                        Debug.LogError($"[Sharpy] Compilation failed: {result.Stderr}");
-                    }
-                }
+                SharpyMenuItems.RecompileAll();
             }
 
             if (hasGenerated && GUILayout.Button("View Generated C#"))

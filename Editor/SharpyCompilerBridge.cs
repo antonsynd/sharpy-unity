@@ -88,36 +88,6 @@ namespace Sharpy.Unity.Editor
             return line.Trim();
         }
 
-        public static CompileResult CompileFile(string spyPath, string outputCsPath)
-        {
-            SharpyBinaryDownloader.EnsureVersionChecked();
-
-            var settings = SharpySettings.instance;
-            WarnOnNamespaceCollision(settings.RootNamespace);
-            var args = BuildCompileArgs(
-                spyPath,
-                outputCsPath,
-                settings.RootNamespace,
-                settings.AdditionalModulePaths,
-                settings.AdditionalReferences);
-
-            var result = RunCompiler(args, settings.CompilerTimeoutSeconds);
-
-            if (!result.Success)
-            {
-                // Only re-run for diagnostics when the compiler actually ran
-                // and rejected the file; a timeout or missing binary would
-                // just fail the same way again.
-                var jsonDiagnostics = result.ExitCode > 0
-                    ? GetDiagnostics(spyPath).Diagnostics
-                    : new List<SharpyDiagnostic>();
-
-                result.Diagnostics = BuildFailureDiagnostics(jsonDiagnostics, result.Stderr, spyPath);
-            }
-
-            return result;
-        }
-
         private const string NamespaceWarningSessionKey = "Sharpy.NamespaceCollisionWarned";
 
         internal static void WarnOnNamespaceCollision(string rootNamespace)
@@ -135,70 +105,6 @@ namespace Sharpy.Unity.Editor
                 + "Compilation of the generated C# will likely fail.");
         }
 
-        internal static string BuildCompileArgs(
-            string spyPath,
-            string outputCsPath,
-            string rootNamespace,
-            IEnumerable<string> additionalModulePaths,
-            IEnumerable<string> additionalReferences)
-        {
-            var builder = new StringBuilder();
-            builder.Append($"emit csharp \"{spyPath}\" -o \"{outputCsPath}\" -t library");
-
-            if (!string.IsNullOrEmpty(rootNamespace))
-            {
-                builder.Append($" --namespace \"{rootNamespace}\"");
-            }
-
-            AppendRepeatable(builder, "-m", additionalModulePaths);
-            AppendRepeatable(builder, "-r", additionalReferences);
-
-            return builder.ToString();
-        }
-
-        // sharpyc takes one value per flag occurrence; empty entries in the
-        // settings lists are skipped.
-        private static void AppendRepeatable(StringBuilder builder, string flag, IEnumerable<string> values)
-        {
-            if (values == null)
-            {
-                return;
-            }
-
-            foreach (string value in values)
-            {
-                if (!string.IsNullOrWhiteSpace(value))
-                {
-                    builder.Append($" {flag} \"{value.Trim()}\"");
-                }
-            }
-        }
-
-        // The compiler's stderr is human-oriented (rustc-style) text;
-        // structured diagnostics come from an `emit diagnostics --format json`
-        // re-run. When that yields nothing, the raw stderr becomes a single
-        // error so failures are never silent.
-        internal static List<SharpyDiagnostic> BuildFailureDiagnostics(
-            List<SharpyDiagnostic> jsonDiagnostics, string stderr, string filePath)
-        {
-            if (jsonDiagnostics != null && jsonDiagnostics.Count > 0)
-            {
-                return jsonDiagnostics;
-            }
-
-            return new List<SharpyDiagnostic>
-            {
-                new SharpyDiagnostic
-                {
-                    Severity = SharpyDiagnostic.DiagnosticSeverity.Error,
-                    Message = string.IsNullOrWhiteSpace(stderr)
-                        ? "Compilation failed with no diagnostics."
-                        : stderr.Trim(),
-                    FilePath = filePath
-                }
-            };
-        }
-
         /// <summary>
         /// Runs <c>sharpyc project</c>. Diagnostics are parsed on every exit:
         /// warnings arrive on stdout even when the build succeeds. Paths under
@@ -213,15 +119,6 @@ namespace Sharpy.Unity.Editor
             var result = RunCompiler(args, settings.CompilerTimeoutSeconds);
             result.Diagnostics = SharpyDiagnosticParser.ParseCompilerOutput(
                 result.Stdout, result.Stderr, projectRoot, !result.Success);
-            return result;
-        }
-
-        public static CompileResult GetDiagnostics(string spyPath)
-        {
-            var settings = SharpySettings.instance;
-            var args = $"emit diagnostics \"{spyPath}\" --format json";
-            var result = RunCompiler(args, settings.CompilerTimeoutSeconds);
-            result.Diagnostics = ParseJsonDiagnostics(result.Stdout, spyPath);
             return result;
         }
 
@@ -302,74 +199,6 @@ namespace Sharpy.Unity.Editor
             }
 
             return result;
-        }
-
-        internal static List<SharpyDiagnostic> ParseJsonDiagnostics(string json, string fallbackFilePath)
-        {
-            var diagnostics = new List<SharpyDiagnostic>();
-
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return diagnostics;
-            }
-
-            json = json.Trim();
-
-            if (!json.StartsWith("["))
-            {
-                return diagnostics;
-            }
-
-            var wrapper = JsonUtility.FromJson<DiagnosticArrayWrapper>(
-                "{\"items\":" + json + "}");
-
-            if (wrapper?.items == null)
-            {
-                return diagnostics;
-            }
-
-            foreach (var item in wrapper.items)
-            {
-                diagnostics.Add(new SharpyDiagnostic
-                {
-                    Severity = ParseSeverity(item.severity),
-                    Code = item.code ?? string.Empty,
-                    Line = item.line,
-                    Column = item.column,
-                    Message = item.message ?? string.Empty,
-                    Phase = item.phase ?? string.Empty,
-                    FilePath = fallbackFilePath
-                });
-            }
-
-            return diagnostics;
-        }
-
-        private static SharpyDiagnostic.DiagnosticSeverity ParseSeverity(string severity)
-        {
-            return severity?.ToLowerInvariant() switch
-            {
-                "error" => SharpyDiagnostic.DiagnosticSeverity.Error,
-                "warning" => SharpyDiagnostic.DiagnosticSeverity.Warning,
-                _ => SharpyDiagnostic.DiagnosticSeverity.Info
-            };
-        }
-
-        [Serializable]
-        private class DiagnosticJsonItem
-        {
-            public string severity;
-            public string code;
-            public int line;
-            public int column;
-            public string message;
-            public string phase;
-        }
-
-        [Serializable]
-        private class DiagnosticArrayWrapper
-        {
-            public DiagnosticJsonItem[] items;
         }
     }
 }

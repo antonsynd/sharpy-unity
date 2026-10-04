@@ -2,95 +2,21 @@ namespace Sharpy.Unity.Editor
 {
     // Usings are inside the namespace so BCL names (Path, List, Math, ...) win
     // over same-named Sharpy.* root types from the referenced Sharpy.Core.dll.
-    using System.Collections.Generic;
     using System.IO;
     using UnityEditor;
     using UnityEngine;
 
     public static class SharpyMenuItems
     {
+        // There is no "Recompile Selected": every .spy is compiled as part of
+        // one project, so a single file cannot be compiled on its own.
         [MenuItem("Assets/Sharpy/Recompile All", false, 1000)]
         public static void RecompileAll()
         {
-            string[] allGuids = AssetDatabase.FindAssets("", new[] { "Assets" });
-            var spyPaths = new List<string>();
-
-            foreach (string guid in allGuids)
+            if (SharpyProjectCompiler.Compile(force: true))
             {
-                string path = AssetDatabase.GUIDToAssetPath(guid);
-
-                if (Path.GetExtension(path) == ".spy")
-                {
-                    spyPaths.Add(path);
-                }
+                Debug.Log("[Sharpy] Recompiled all .spy files.");
             }
-
-            for (int i = 0; i < spyPaths.Count; i++)
-            {
-                string path = spyPaths[i];
-                string outputPath = SharpyGeneratedFolderManager.GetGeneratedPath(path);
-                string outputDir = Path.GetDirectoryName(outputPath);
-
-                if (!string.IsNullOrEmpty(outputDir))
-                {
-                    Directory.CreateDirectory(outputDir);
-                }
-
-                EditorUtility.DisplayProgressBar(
-                    "Sharpy — Recompiling",
-                    path,
-                    (float)i / spyPaths.Count);
-
-                SharpyCompilerBridge.CompileFile(path, outputPath);
-            }
-
-            EditorUtility.ClearProgressBar();
-            AssetDatabase.Refresh();
-            Debug.Log($"[Sharpy] Recompiled {spyPaths.Count} .spy file(s).");
-        }
-
-        [MenuItem("Assets/Sharpy/Recompile Selected", false, 1001)]
-        public static void RecompileSelected()
-        {
-            int compiled = 0;
-
-            foreach (var obj in Selection.objects)
-            {
-                string path = AssetDatabase.GetAssetPath(obj);
-
-                if (Path.GetExtension(path) != ".spy")
-                {
-                    continue;
-                }
-
-                string outputPath = SharpyGeneratedFolderManager.GetGeneratedPath(path);
-                string outputDir = Path.GetDirectoryName(outputPath);
-
-                if (!string.IsNullOrEmpty(outputDir))
-                {
-                    Directory.CreateDirectory(outputDir);
-                }
-
-                SharpyCompilerBridge.CompileFile(path, outputPath);
-                compiled++;
-            }
-
-            AssetDatabase.Refresh();
-            Debug.Log($"[Sharpy] Recompiled {compiled} selected .spy file(s).");
-        }
-
-        [MenuItem("Assets/Sharpy/Recompile Selected", true)]
-        private static bool RecompileSelectedValidation()
-        {
-            foreach (var obj in Selection.objects)
-            {
-                if (Path.GetExtension(AssetDatabase.GetAssetPath(obj)) == ".spy")
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         [MenuItem("Assets/Sharpy/View Generated C#", false, 1003)]
@@ -141,6 +67,21 @@ namespace Sharpy.Unity.Editor
         public static void CleanGenerated()
         {
             string outputPath = SharpySettings.instance.GeneratedOutputPath;
+
+            // The generated folder is deleted whole; never Assets/ itself.
+            string folderProblem = SharpyProjectCompiler.CheckGeneratedFolder(outputPath, new string[0]);
+
+            if (folderProblem != null)
+            {
+                Debug.LogError("[Sharpy] " + folderProblem);
+                return;
+            }
+
+            // The .spyproj, the staging folder, and sharpyc's bin/ and obj/.
+            if (Directory.Exists(SharpyProjectCompiler.LibraryFolder))
+            {
+                Directory.Delete(SharpyProjectCompiler.LibraryFolder, true);
+            }
 
             if (Directory.Exists(outputPath))
             {
