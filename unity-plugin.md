@@ -3,6 +3,8 @@
 
 # Sharpy Unity Integration — `Sharpy.Unity` Editor Plugin
 
+> **Status (2026-10-03):** this is the original design spec, kept for its history. The compile pipeline was redesigned to fix issues #1–#12: every `.spy` is compiled as one `sharpyc project`, staged in `Library/Sharpy/` and synced into the generated folder; diagnostics come from the compile's own output; `#line` directives are rewritten by the plugin; generated scripts get class-named files and GUIDs derived from the `.spy`; references are derived from Unity. Parts this changed are marked **[SUPERSEDED]** below. The current design is in `CLAUDE.md` (Key Design Decisions, Architecture) and `Documentation~/index.md` (How Compilation Works).
+
 ## Context
 
 Sharpy compiles `.spy` source files to C# via `sharpyc emit csharp`, which Unity can then compile normally. The goal is a Unity Editor plugin that makes `.spy` files "just work" inside a Unity project — edit a `.spy` file, Unity detects the change, runs the Sharpy compiler, and the generated C# is picked up by Unity's normal compilation pipeline.
@@ -32,9 +34,9 @@ Sharpy compiles `.spy` source files to C# via `sharpyc emit csharp`, which Unity
 
 4. **Ship `Sharpy.Core.dll` as a plugin** — the `netstandard2.1` build of `Sharpy.Core` drops into `Assets/Plugins/Sharpy.Core/`. This is a runtime dependency (not editor-only).
 
-5. **Ship `sharpyc` as an editor-only binary** — the compiler CLI is bundled in `Editor/Binaries/` (platform-specific: macOS, Windows, Linux). Editor-only so it's excluded from builds.
+5. **Ship `sharpyc` as an editor-only binary** — the compiler CLI is bundled in `Editor/Binaries/` (platform-specific: macOS, Windows, Linux). Editor-only so it's excluded from builds. **[SUPERSEDED: `sharpyc` is not bundled. `SharpyBinaryDownloader` downloads the pinned release per platform into the project's `Library/SharpyCompiler/<version>/<rid>/`; the archive holds ~350 DLLs Unity would try to import from a package folder.]**
 
-6. **Namespace wrapping for Unity** — generated C# from single-file `emit csharp` has no namespace (multi-file `project` compilation already wraps in `ProjectNamespace` from `.spyproj`). The plugin should pass a configurable namespace to avoid global scope pollution in Unity projects. This requires a new `--namespace` flag on `sharpyc emit csharp` for single-file mode (upstream change in `sharpy` repo). [CORRECTED: multi-file projects already support namespace wrapping via `_context.ProjectNamespace` from `.spyproj` config; only single-file `emit csharp` lacks this]
+6. **Namespace wrapping for Unity** — generated C# from single-file `emit csharp` has no namespace (multi-file `project` compilation already wraps in `ProjectNamespace` from `.spyproj`). The plugin should pass a configurable namespace to avoid global scope pollution in Unity projects. This requires a new `--namespace` flag on `sharpyc emit csharp` for single-file mode (upstream change in `sharpy` repo). [CORRECTED: multi-file projects already support namespace wrapping via `_context.ProjectNamespace` from `.spyproj` config; only single-file `emit csharp` lacks this] **[SUPERSEDED: the plugin uses project mode only, so namespaces come from the generated `.spyproj` (`RootNamespace`, default `SharpyScripts`, plus the folder path from `<SourceRoot>`, i.e. `Assets/`). No `--namespace` flag is needed.]**
 
 ## Implementation
 
@@ -81,6 +83,7 @@ Sharpy compiles `.spy` source files to C# via `sharpyc emit csharp`, which Unity
 
 4. **`SharpyCompilerBridge.cs`** — `Editor/SharpyCompilerBridge.cs`
    - Locate the correct platform-specific `sharpyc` binary
+   - **[SUPERSEDED: `CompileFile`, `GetDiagnostics` and the JSON parser were removed. Per-file emit wrote imported modules next to each importer and gave the same module different namespaces (#4), and `emit diagnostics` accepts no references (#3). The bridge now only runs `sharpyc project`; `SharpyProjectCompiler` drives it and `SharpyDiagnosticParser` reads the rendered diagnostics. Exit codes: 0 success, 1 Sharpy errors, 2 generated C# does not compile, 3 internal error.]**
    - `CompileFile(string spyPath, string outputCsPath)` — runs `sharpyc emit csharp <spy> -o <cs>`, returns structured result
    - `CompileProject(string spyprojPath, string outputDir)` — runs `sharpyc project <spyproj> --emit-cs-to <dir>`
    - `GetDiagnostics(string spyPath)` — runs `sharpyc emit diagnostics <spy> --format json`, parses JSON
@@ -105,6 +108,7 @@ Sharpy compiles `.spy` source files to C# via `sharpyc emit csharp`, which Unity
 6. **`SharpyAssetPostprocessor.cs`** — `Editor/SharpyAssetPostprocessor.cs`
    - Subclass `AssetPostprocessor`, override `OnPostprocessAllAssets()`
    - Filter for `.spy` file imports/moves/deletes
+   - **[SUPERSEDED: any imported, moved or deleted `.spy` triggers one `SharpyProjectCompiler.Compile()` of the whole project; generated files are synced from `Library/Sharpy/emit` only after a successful build. The in-memory hash check became a persisted fingerprint (`Library/Sharpy/fingerprint`), also checked on editor load and focus.]**
    - On create/modify: invoke `SharpyCompilerBridge.CompileFile()`, write `.cs` to mirror path under `Assets/SharpyGenerated/`
    - On delete: delete corresponding generated `.cs` file
    - On move: delete old `.cs`, compile to new mirror path
@@ -130,6 +134,7 @@ Sharpy compiles `.spy` source files to C# via `sharpyc emit csharp`, which Unity
 8. **`SharpySettings.cs`** — `Editor/SharpySettings.cs`
    - `ScriptableSingleton<SharpySettings>` stored in `ProjectSettings/`
    - Settings: `generatedOutputPath` (default `Assets/SharpyGenerated`), `compilerTimeoutSeconds` (default 30), `autoCompileOnSave` (default true), `rootNamespace` (default empty), `showLineDirectives` (default false), `additionalModulePaths` (list), `additionalReferences` (list)
+   - **[SUPERSEDED: `showLineDirectives` was removed and replaced by `sourceMappedErrors` (default true). Added: `customCompilerPath`, `autoUnityReferences`, `referenceDenylist`. `compilerTimeoutSeconds` now bounds a whole-project compile. Settings edited on disk are reloaded (#12).]**
    - Acceptance criteria: Settings persist across Unity sessions
    - Commit: `feat: add SharpySettings for project-level configuration`
 
@@ -143,7 +148,7 @@ Sharpy compiles `.spy` source files to C# via `sharpyc emit csharp`, which Unity
 
 10. **`SharpyMenuItems.cs`** — `Editor/SharpyMenuItems.cs`
     - `Assets/Sharpy/Recompile All` — force-recompile every `.spy` in the project
-    - `Assets/Sharpy/Recompile Selected` — recompile selected `.spy` file(s)
+    - `Assets/Sharpy/Recompile Selected` — recompile selected `.spy` file(s) **[SUPERSEDED: removed; a single file cannot be compiled on its own in project mode. *Clean Generated* also clears `Library/Sharpy/`.]**
     - `Assets/Sharpy/Clean Generated` — delete all generated `.cs` files
     - Right-click context menu on `.spy` files: "View Generated C#" (opens the generated `.cs` in the code editor)
     - Acceptance criteria: Menu items work and show progress bar for bulk operations
@@ -162,6 +167,7 @@ Sharpy compiles `.spy` source files to C# via `sharpyc emit csharp`, which Unity
 #### Tasks
 
 12. **Enable `#line` directives by default** — `Editor/SharpyCompilerBridge.cs`
+    - **[SUPERSEDED: project mode always emits `#line` directives, in both the classic and the C# 10 span form, which Unity's C# 9 rejects. `SharpyLineDirectives` rewrites span directives to the classic form during the sync, keeps paths absolute (Unity resolves a relative `#line` path against the generated `.cs`'s folder), and strips all directives when `sourceMappedErrors` is off. No upstream flag is used.]**
     - Pass `--show-line-directives` to `sharpyc emit csharp` so generated C# contains `#line N "file.spy"` directives
     - Unity's C# compiler respects `#line` — errors will reference the `.spy` file and line number
     - When user double-clicks an error, Unity opens the `.spy` file at the correct line (if an external editor is configured for `.spy`)
@@ -180,7 +186,7 @@ Sharpy compiles `.spy` source files to C# via `sharpyc emit csharp`, which Unity
 
 #### Tasks
 
-14. **`--namespace` flag for `emit csharp`** — `src/Sharpy.Cli/` and `src/Sharpy.Compiler/`
+14. **`--namespace` flag for `emit csharp`** — `src/Sharpy.Cli/` and `src/Sharpy.Compiler/` **[SUPERSEDED: not needed; see design decision 6. The upstream change the plugin does need is a `<SourceRoot>` spyproj property, so the module root stays at `Assets/`.]**
     - Add `--namespace <ns>` option to `emit csharp` command
     - When provided, wrap generated classes in `namespace <ns> { ... }`
     - Default: no namespace (current behavior, backwards-compatible)

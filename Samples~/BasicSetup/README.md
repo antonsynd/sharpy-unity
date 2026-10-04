@@ -35,16 +35,16 @@ Unity's `float` is Sharpy's `float32`. Sharpy's `float` is a C# `double`, so fie
 from ..Core.greeting import greet, wrap_degrees
 ```
 
-A relative import names the other module by its position from the importing file, so it keeps working wherever the folder ends up under `Assets/`. An imported sample, for example, lives under a version-numbered folder. An absolute import such as `from Core.greeting import greet` is spelled from the compiler's module root, and that depends on where the rest of your project's `.spy` files are.
+A relative import names the other module by its position from the importing file, so it keeps working wherever the folder ends up under `Assets/`. An imported sample, for example, lives under a version-numbered folder. An absolute import is spelled from `Assets/`, so inside this sample it would have to name the version folder and would break as soon as the sample is imported under another version.
 
 ## Using the Generated Classes
 
-After import, you can reference the generated classes from any C# script or MonoBehaviour. Sharpy's snake_case members compile to PascalCase C#. Each `.spy` file becomes a namespace made of the **Root Namespace** setting (`SharpyScripts` by default) and the file's folder path; the first `namespace` line of the generated file shows it. With only this sample in the project:
+After import, you can reference the generated classes from any C# script or MonoBehaviour. Sharpy's snake_case members compile to PascalCase C#. Each `.spy` file becomes a namespace made of the **Root Namespace** setting (`SharpyScripts` by default), the file's folder path from `Assets/` and its module name; the first `namespace` line of the generated file shows it. Folder names become valid identifiers, so `Samples/Sharpy/0.1.0/Basic Setup/Scripts/HelloSharpy.spy` gives `SharpyScripts.Samples.Sharpy._010.BasicSetup.Scripts.HelloSharpy`. The `_010` segment is the sample's version folder; if you imported another version, copy the namespace from the generated file.
 
 ```csharp
 using UnityEngine;
-using SharpyScripts.GameScore;
-using SharpyScripts.HelloSharpy;
+using SharpyScripts.Samples.Sharpy._010.BasicSetup.Scripts.GameScore;
+using SharpyScripts.Samples.Sharpy._010.BasicSetup.Scripts.HelloSharpy;
 
 public class ExampleUsage : MonoBehaviour
 {

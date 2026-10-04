@@ -6,8 +6,8 @@ Unity Editor plugin that makes `.spy` files work seamlessly inside Unity project
 
 ## Requirements
 
-- Unity 2022.3 LTS or later
-- Sharpy compiler (`sharpyc`) — downloaded on demand (first-launch prompt, or **Assets > Sharpy > Download Compiler**)
+- Unity 2022.3 LTS or later (developed and tested on Unity 6000.3; 2022.3 is covered only by the CI smoke compile)
+- Sharpy compiler (`sharpyc`) — downloaded on demand (first-launch prompt, or **Assets > Sharpy > Download Compiler**). Project compilation needs a sharpy release newer than 0.21.0; with 0.21.0 the compile stops with an error that says so.
 
 ## Installation
 
@@ -27,31 +27,55 @@ Unity Editor plugin that makes `.spy` files work seamlessly inside Unity project
 ## Usage
 
 1. Create `.spy` files anywhere under `Assets/`
-2. The plugin detects changes and runs `sharpyc` automatically
-3. Generated C# appears in `Assets/SharpyGenerated/` (excluded from git)
+2. On save, the plugin compiles **all** `.spy` files as one Sharpy project
+3. Generated C# appears in `Assets/SharpyGenerated/` (git-ignored), mirroring the source folders
 4. Unity compiles the generated C# normally
+
+A `.spy` file whose only MonoBehaviour or ScriptableObject is `Player` generates `Player.cs`, so the component can be added in the Inspector. Generated scripts get GUIDs derived from their `.spy` file's GUID, so scene and prefab references survive *Clean Generated* and a fresh clone (commit the `.spy.meta` files). Sharpy errors, and C# errors in generated code, are reported at the `.spy` line; double-click opens the `.spy`.
+
+### Imports and namespaces
+
+Imports are spelled from `Assets/`: `Assets/Scripts/Core/greeting.spy` is `Scripts.Core.greeting`. Prefer relative imports (`from ..Core.greeting import greet`) between your own folders; they keep working when a folder moves. Each `.spy` becomes the namespace *Root Namespace* + its folder path + its module name, e.g. `SharpyScripts.Scripts.Core.Greeting`. Rooting at `Assets/` needs the sharpy release after 0.21.0; older compilers root at the common folder of all `.spy` files.
+
+### Unity APIs
+
+`from unity_engine import MonoBehaviour, Vector3` works with no setup: the plugin passes Unity's engine assemblies to `sharpyc` automatically. Package APIs (Input System, TextMeshPro, UGUI, ...) are not derived, because `sharpyc` cannot load many of them yet ([sharpy#2182](https://github.com/antonsynd/sharpy/issues/2182)); add a package's DLL to **Additional References** to try it. Sharpy's `float` is a C# `double`; use `float32` for Unity's `float`.
 
 ### Settings
 
 Open **Edit > Project Settings > Sharpy** to configure:
 
-- **Auto-compile on Save** — toggle automatic compilation
-- **Generated Output Path** — where generated C# files are written
-- **Root Namespace** — namespace wrapper for generated code
-- **Compiler Timeout** — max seconds per compilation
 - **Custom Compiler Path** — absolute path to a `sharpyc` binary, overriding the managed install
+- **Timeout (seconds)** — limit for one whole-project compile (default 30)
+- **Auto-compile on Save** — compile on `.spy` changes, and on editor load or focus when sources, settings or the compiler changed
+- **Generated Output Path** — folder under `Assets/` the generated C# is synced into; every `.cs` in it is replaced
+- **Source-mapped errors** — keep `#line` directives so errors and stack traces name `.spy` lines (default on)
+- **Root Namespace** — first namespace segment of generated code (default `SharpyScripts` when empty)
+- **Additional Module Paths** — extra folders to resolve Sharpy imports from
+- **Additional References** — extra assemblies, passed as-is
+- **Derive Unity References** / **Reference Denylist** — the automatic Unity references and names to leave out of them
+
+Settings edited outside the editor (a text editor, `git pull`) are picked up when the editor regains focus.
 
 ### Menu Items
 
-- **Assets > Sharpy > Recompile All** — force-recompile every `.spy` file
-- **Assets > Sharpy > Recompile Selected** — recompile selected `.spy` files
-- **Assets > Sharpy > Clean Generated** — delete all generated C# files
+- **Assets > Sharpy > Recompile All** — compile every `.spy` now, even if nothing changed
+- **Assets > Sharpy > Clean Generated** — delete the generated C# and the compiler's working folder `Library/Sharpy/`
+- **Assets > Sharpy > View Generated C#** — open the generated script of the selected `.spy`
+- **Assets > Sharpy > Download Compiler** — install the pinned `sharpyc`
+- **Assets > Sharpy > Install Stdlib (experimental)** — see [Standard Library](#standard-library-experimental)
 
 ## How It Works
 
 ```
-.spy file saved → AssetPostprocessor detects change → sharpyc emit csharp → .cs written → Unity compiles
+.spy changed (or Recompile All, or focus with stale inputs)
+  → write Library/Sharpy/unity.spyproj (all .spy under Assets/, Unity references)
+  → sharpyc project Library/Sharpy/unity.spyproj --emit-cs-to Library/Sharpy/emit
+  → on success only: sync into Assets/SharpyGenerated/ (class-named files, deterministic .meta GUIDs)
+  → Unity compiles the generated C#
 ```
+
+A failed compile leaves `Assets/SharpyGenerated/` untouched. See [Documentation~/index.md](Documentation~/index.md) for details and known limitations.
 
 The plugin ships with:
 - `Sharpy.Core.dll` (netstandard2.1) — runtime dependency for `Sharpy.Builtins`, `Sharpy.List<T>`, etc.

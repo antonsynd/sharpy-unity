@@ -33,12 +33,13 @@ Flag as error: any path, name, or API that doesn't exist. Fix inline if the corr
 
 ### 2. Consistency with Design Spec
 
-Check the plan follows `unity-plugin.md` design decisions:
+Check the plan follows the current design decisions (`CLAUDE.md` › Key Design Decisions; `unity-plugin.md` is the original spec and marks its superseded parts):
 - **Transpile-then-compile**: Not custom compiler injection
 - **AssetPostprocessor**: Not ScriptedImporter (unless there's a good reason documented)
-- **Generated files in configurable output path**: Default `Assets/SharpyGenerated/`
+- **One compile path**: Every trigger goes through `SharpyProjectCompiler.Compile()` (whole-project `sharpyc project`, staged in `Library/Sharpy/`, synced only on exit 0) — no per-file `emit csharp`
+- **Generated files in configurable output path**: Default `Assets/SharpyGenerated/`; class-named MonoBehaviour scripts; `.meta` GUIDs derived from the `.spy` GUID
 - **Sharpy.Core.dll as plugin**: Runtime dependency, not editor-only
-- **sharpyc as editor-only**: Platform-specific binaries in `Editor/Binaries/`
+- **sharpyc downloaded, not bundled**: Installed per project under `Library/SharpyCompiler/<version>/<rid>/` by `SharpyBinaryDownloader`; never inside the package
 - **Assembly definitions**: Correct platform constraints and references
 - **C# compatibility**: Code must work with Unity 2022.3+ (C# 9.0, netstandard2.1)
 
@@ -48,8 +49,8 @@ Flag as warning: any design spec deviation. Add a note explaining the correct ap
 
 If the plan references compiler behavior:
 - **CLI flags**: Verify against `../sharpy/src/Sharpy.Cli/` source
-- **Diagnostics JSON format**: Verify against actual `emit diagnostics --format json` output structure
-- **Exit codes**: Confirm 0 = success, 1 = errors
+- **Diagnostics format**: `sharpyc project` has no JSON diagnostics; verify against its rendered output (errors on stderr, warnings on stdout) and `SharpyDiagnosticParser`
+- **Exit codes**: 0 = success, 1 = Sharpy errors, 2 = generated C# does not compile, 3 = internal compiler error; only 0 may sync
 - **Sharpy.Core API**: Verify class/method names against `../sharpy/src/Sharpy.Core/`
 
 Flag as error: incorrect compiler interface assumptions.

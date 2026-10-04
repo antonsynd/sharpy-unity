@@ -18,8 +18,7 @@ This is a UPM package, **not** a Unity project. It follows [Unity package layout
 
 ```
 Editor/                      # Editor-only C# (Sharpy.Unity.Editor assembly)
-  Binaries/                  # Legacy binary location (now empty; sharpyc installs to Library/)
-  *.cs                       # Compiler bridge, asset postprocessor, settings, menus
+  *.cs                       # Project compiler, sync, settings, menus, installers
 Runtime/                     # Runtime C# (Sharpy.Unity.Runtime assembly)
 Plugins/Sharpy.Core/         # Sharpy.Core.dll (netstandard2.1, runtime dependency)
 Tests/Editor/                # Unity Test Runner tests (editor mode)
@@ -33,34 +32,59 @@ Tools~/build_tools/          # Python CLI (in a `~` folder so Unity skips it): D
 ## Key Design Decisions
 
 1. **Transpile-then-compile** — generate C# and let Unity's pipeline handle it, rather than injecting IL
-2. **AssetPostprocessor** — fires on `.spy` file import to trigger compilation
-3. **Generated files in `Assets/SharpyGenerated/`** — mirrors source structure, gitignored
-4. **Sharpy.Core.dll as a plugin** — netstandard2.1 build, runtime dependency
-5. **sharpyc downloaded, not bundled** — `SharpyBinaryDownloader` fetches the self-contained per-RID sharpyc from the sharpy GitHub release pinned in `SharpyToolchain.Version`, installing it under the project's `Library/` — never inside the package (the archive holds ~350 DLLs Unity would try to import)
+2. **Whole-project compilation** — every `.spy` under `Assets/` is one `sharpyc project` build (per-file emit duplicated imported modules and disagreed on namespaces). All triggers (postprocessor, menu, settings button, focus, `SharpyBatch`) go through `SharpyProjectCompiler.Compile()`
+3. **Stage, then sync** — sharpyc writes to `Library/Sharpy/emit`; only exit code 0 syncs into the generated folder, so a failed build never touches `Assets/`
+4. **Generated files in `Assets/SharpyGenerated/`** — mirrors source structure, gitignored; MonoBehaviour/ScriptableObject scripts are named after their class, and every `.meta` GUID is derived from the `.spy` GUID (`SharpyGeneratedMeta`) so scene references survive clean regenerates and clones
+5. **Imports rooted at `Assets/`** — the spyproj sets `<SourceRoot>../../Assets</SourceRoot>` (honoured by sharpy releases after 0.21.0); relative imports are recommended
+6. **References derived, not configured** — `SharpyReferenceProvider` takes Assembly-CSharp's references minus what sharpyc cannot load (sharpy#2182); nothing machine-specific is serialized
+7. **Sharpy.Core.dll as a plugin** — netstandard2.1 build, runtime dependency
+8. **sharpyc downloaded, not bundled** — `SharpyBinaryDownloader` fetches the self-contained per-RID sharpyc from the sharpy GitHub release pinned in `SharpyToolchain.Version`, installing it under the project's `Library/` — never inside the package (the archive holds ~350 DLLs Unity would try to import)
 
 ## Architecture
 
 ```
-.spy file changed
-  → SharpyAssetPostprocessor.OnPostprocessAllAssets()
-    → SharpyCompilerBridge.CompileFile()
-      → sharpyc emit csharp <file> -o <output> -t library
-    → Write .cs to SharpyGenerated/
-    → AssetDatabase.Refresh()
-      → Unity compiles the generated C#
+.spy imported/moved/deleted (SharpyAssetPostprocessor) · Recompile All · editor load/focus with a stale fingerprint (SharpySettingsReloader) · SharpyBatch.GenerateAll
+  → SharpyProjectCompiler.Compile()
+    → SharpySettings.RefreshFromDiskIfChanged()
+    → SharpyProjectFile.Build() → Library/Sharpy/unity.spyproj   (SharpyReferenceProvider supplies references)
+    → SharpyFingerprint: up to date? → done
+    → SharpyCompilerBridge.CompileProject()
+      → sharpyc project Library/Sharpy/unity.spyproj --emit-cs-to Library/Sharpy/emit
+      → SharpyDiagnosticParser → SharpyDiagnosticLog (Console, double-click opens the .spy)
+    → exit 0 only:
+      → SharpyScriptClasses + SharpyGeneratedFolderManager: class-named paths
+      → SharpyLineDirectives.Rewrite (span → classic #line, absolute paths)
+      → SharpyGeneratedMeta.GuidFor (GUID from the .spy GUID)
+      → SharpyGeneratedSync.Sync → Assets/SharpyGenerated/ (meta before .cs, stale files removed)
+      → Library/Sharpy/fingerprint; stdlib warnings (SharpyStdlibDetector)
+      → AssetDatabase.Refresh() → Unity compiles the generated C#
 ```
 
 ### Key Classes
 
 | Class | File | Purpose |
 |-------|------|---------|
-| `SharpyCompilerBridge` | `Editor/SharpyCompilerBridge.cs` | Invokes sharpyc, captures output |
-| `SharpyDiagnostic` | `Editor/SharpyDiagnostic.cs` | Parsed diagnostic from JSON output |
-| `SharpyAssetPostprocessor` | `Editor/SharpyAssetPostprocessor.cs` | Detects .spy changes, triggers compilation |
-| `SharpyGeneratedFolderManager` | `Editor/SharpyGeneratedFolderManager.cs` | Manages output directory lifecycle |
-| `SharpySettings` | `Editor/SharpySettings.cs` | Project-level settings (ScriptableSingleton) |
+| `SharpyProjectCompiler` | `Editor/SharpyProjectCompiler.cs` | The one compile path: spyproj → sharpyc → staging → sync; fingerprint check |
+| `SharpyProjectFile` | `Editor/SharpyProjectFile.cs` | Builds the `.spyproj` text (pure, deterministic) |
+| `SharpyCompilerBridge` | `Editor/SharpyCompilerBridge.cs` | Runs `sharpyc project`, captures output, parses diagnostics |
+| `SharpyDiagnosticParser` | `Editor/SharpyDiagnosticParser.cs` | Parses sharpyc's rendered diagnostics (errors on stderr, warnings on stdout) |
+| `SharpyDiagnosticLog` | `Editor/SharpyDiagnosticLog.cs` | Logs diagnostics so double-click opens the `.spy` line |
+| `SharpyDiagnostic` | `Editor/SharpyDiagnostic.cs` | One parsed diagnostic |
+| `SharpyReferenceProvider` | `Editor/SharpyReferenceProvider.cs` | Derives Unity references; denylist and sharpy#2182 exclusions |
+| `SharpyGeneratedSync` | `Editor/SharpyGeneratedSync.cs` | Makes the generated folder hold exactly the staged scripts (file system only) |
+| `SharpyScriptClasses` | `Editor/SharpyScriptClasses.cs` | Finds the MonoBehaviour/ScriptableObject class a script must be named after |
+| `SharpyGeneratedMeta` | `Editor/SharpyGeneratedMeta.cs` | Deterministic `.meta` GUID and text from the `.spy` GUID |
+| `SharpyLineDirectives` | `Editor/SharpyLineDirectives.cs` | Rewrites span `#line` directives to the C# 9 form (or strips them) |
+| `SharpyFingerprint` | `Editor/SharpyFingerprint.cs` | Hash of all compile inputs, persisted in `Library/Sharpy/fingerprint` |
+| `SharpyAssetPostprocessor` | `Editor/SharpyAssetPostprocessor.cs` | Detects .spy changes, triggers one project compile |
+| `SharpySettingsReloader` | `Editor/SharpySettingsReloader.cs` | On editor load/focus: reload settings from disk, compile if stale |
+| `SharpyGeneratedFolderManager` | `Editor/SharpyGeneratedFolderManager.cs` | Generated folder lifecycle and `.spy` ↔ generated path mapping |
+| `SharpySettings` | `Editor/SharpySettings.cs` | Project-level settings (ScriptableSingleton), reloaded when edited on disk |
 | `SharpySettingsProvider` | `Editor/SharpySettingsProvider.cs` | Settings UI in Project Settings window |
-| `SharpyMenuItems` | `Editor/SharpyMenuItems.cs` | Menu items for manual compilation control |
+| `SharpyMenuItems` | `Editor/SharpyMenuItems.cs` | Recompile All, Clean Generated (also clears `Library/Sharpy/`), View Generated C# |
+| `SharpyBatch` | `Editor/SharpyBatch.cs` | `-executeMethod` entry point for headless regeneration (CI) |
+| `SharpyStdlibInstaller` | `Editor/SharpyStdlibInstaller.cs` | Opt-in Sharpy.Stdlib install into `Assets/Plugins/Sharpy.Stdlib/`, version check |
+| `SharpyStdlibDetector` / `SharpyStdlibModules` | `Editor/SharpyStdlibDetector.cs`, `Editor/SharpyStdlibModules.cs` | Warn when generated code needs stdlib modules that are not installed |
 | `SharpyFileHandler` | `Editor/SharpyFileHandler.cs` | Opens .spy files in external editor |
 | `SharpyToolchain` | `Editor/SharpyToolchain.cs` | Pinned toolchain version, release URLs, platform RID |
 | `SharpyBinaryDownloader` | `Editor/SharpyBinaryDownloader.cs` | Auto-installs pinned sharpyc into `Library/` on editor load |
@@ -104,15 +128,14 @@ sharpyc and `Plugins/Sharpy.Core/*.dll` versions must move together — always u
 
 ## Compiler Interface
 
-The plugin invokes `sharpyc` via `Process.Start`:
+The plugin invokes `sharpyc` via `Process.Start` (with `NO_COLOR=1`, UTF-8 output):
 
 ```bash
-sharpyc emit csharp <file.spy> -o <output.cs> -t library    # Single file
-sharpyc project <.spyproj> --emit-cs-to <dir>               # Multi-file project
-sharpyc emit diagnostics <file.spy> --format json            # Structured diagnostics
+sharpyc project Library/Sharpy/unity.spyproj --emit-cs-to Library/Sharpy/emit   # Every compile
+sharpyc --version                                                              # Fingerprint, settings page
 ```
 
-Exit code 0 = success, 1 = errors. Diagnostics JSON includes `severity`, `code`, `line`, `column`, `message`, `phase`.
+Exit codes: 0 = success (the only one that syncs), 1 = Sharpy errors, 2 = the generated C# does not compile (may leave files in staging; it is cleared before each run), 3 = internal compiler error. `project` has no JSON diagnostics: they are rendered rustc-style (`error[SPY0200]: ...` then `--> /abs/path.spy:line:col`), errors on stderr after `Build FAILED.`, warnings on stdout on success and failure. `--emit-cs-to` must mirror the source tree and `<SourceRoot>` must be honoured — both need a sharpy release newer than 0.21.0.
 
 ## Testing
 
