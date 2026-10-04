@@ -69,6 +69,35 @@ sharpyc emit diagnostics <file.spy> --format json
 
 Exit code `0` indicates success. Exit code `1` indicates errors. Diagnostics JSON includes `severity`, `code`, `line`, `column`, `message`, and `phase` fields.
 
+## Headless Builds (CI)
+
+The generated folder (`Assets/SharpyGenerated/` by default) is git-ignored. A CI checkout therefore starts with no generated C#, or with stale generated C# from a cache. When any C# script in the project uses a type generated from Sharpy, Unity's batch mode fails script compilation on load and quits before any editor code runs:
+
+```
+Aborting batchmode due to failure:
+Scripts have compiler errors.
+```
+
+Run Unity twice. The first run regenerates; `-ignoreCompilerErrors` lets the editor load the plugin even though the project's scripts do not compile yet:
+
+```sh
+Unity -batchmode -nographics -quit -ignoreCompilerErrors -projectPath <project> \
+  -executeMethod Sharpy.Unity.Editor.SharpyBatch.GenerateAll -logFile generate.log
+```
+
+`SharpyBatch.GenerateAll`:
+
+- installs the pinned compiler into `Library/SharpyCompiler/` if it is missing (no custom compiler path set);
+- compiles every `.spy` and replaces the generated C#, whether or not it looks up to date;
+- logs `[Sharpy] GenerateAll: generated C# is up to date.` and exits 0 on success;
+- logs the Sharpy errors and `[Sharpy] GenerateAll failed; ...`, leaves the generated folder untouched and exits 1 on failure.
+
+The first run only checks the Sharpy compile. The second run builds or tests as usual and must not pass `-ignoreCompilerErrors`, so that C# errors still fail the job:
+
+```sh
+Unity -batchmode -nographics -quit -projectPath <project> -executeMethod <YourBuildMethod> -logFile build.log
+```
+
 ## Standard Library (experimental)
 
 The package ships only `Sharpy.Core`. `Sharpy.Stdlib`, which provides Python-style modules such as `math`, `json`, `yaml` and `toml`, is not bundled. It adds about 4 MB of DLLs (MathNet.Numerics, YamlDotNet, Tomlyn, System.Text.Json, Microsoft.Data.Sqlite and others), parts of it rely on reflection or native code, and none of it is tested under IL2CPP.

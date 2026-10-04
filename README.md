@@ -58,6 +58,21 @@ The plugin ships with:
 
 The `sharpyc` compiler itself is not part of the package. On first launch the plugin offers to download the pinned release build for your platform (macOS arm64/x64, Windows x64, Linux x64/arm64) into `Library/SharpyCompiler/<version>/<platform>/` — per-project, git-ignored by Unity convention, and editor-only.
 
+## Headless Builds (CI)
+
+Generated C# lives in the git-ignored `Assets/SharpyGenerated/`, so a fresh clone has none and a cached checkout can hold stale files. If any C# script uses a Sharpy type, Unity's batch mode then stops at load with `Scripts have compiler errors.`, before the plugin can regenerate anything. Regenerate in a first Unity run, then build in a second:
+
+```sh
+# 1. Regenerate. -ignoreCompilerErrors lets the editor load past the missing or stale generated C#.
+Unity -batchmode -nographics -quit -ignoreCompilerErrors -projectPath <project> \
+  -executeMethod Sharpy.Unity.Editor.SharpyBatch.GenerateAll -logFile generate.log
+
+# 2. Build or test as usual, without -ignoreCompilerErrors.
+Unity -batchmode -nographics -quit -projectPath <project> -executeMethod <YourBuildMethod> -logFile build.log
+```
+
+`GenerateAll` installs the pinned compiler if it is missing, compiles every `.spy`, and exits with code 1 when the Sharpy compile fails. See [Documentation~/index.md](Documentation~/index.md#headless-builds-ci) for details.
+
 ## Standard Library (experimental)
 
 `Sharpy.Stdlib` (`import math`, `json`, `yaml`, `toml`, ...) is not bundled: it adds about 4 MB of DLLs, parts of it need reflection or native code, and it is untested under IL2CPP. Without it, a `.spy` file that imports a stdlib module still transpiles, but Unity fails with `error CS0234: The type or namespace name 'MathModule' does not exist in the namespace 'Sharpy'`.
