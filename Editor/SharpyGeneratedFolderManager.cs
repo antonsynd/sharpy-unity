@@ -31,18 +31,49 @@ namespace Sharpy.Unity.Editor
             }
         }
 
+        private const string AssetsPrefix = "Assets/";
+
         public static string GetGeneratedPath(string spyAssetPath)
         {
             string outputRoot = SharpySettings.instance.GeneratedOutputPath;
-            string relativePath = spyAssetPath;
+            return Path.Combine(outputRoot, SpyAssetToGeneratedRelative(spyAssetPath));
+        }
 
-            if (relativePath.StartsWith("Assets/"))
+        /// <summary>
+        /// Assets/Scripts/Core/greeting.spy → Scripts/Core/greeting.cs, the
+        /// script's path under the generated folder. A path outside Assets/
+        /// is kept whole.
+        /// </summary>
+        internal static string SpyAssetToGeneratedRelative(string spyAssetPath)
+        {
+            string relativePath = spyAssetPath.Replace('\\', '/');
+
+            if (relativePath.StartsWith(AssetsPrefix))
             {
-                relativePath = relativePath.Substring("Assets/".Length);
+                relativePath = relativePath.Substring(AssetsPrefix.Length);
             }
 
-            string csFileName = Path.ChangeExtension(relativePath, ".cs");
-            return Path.Combine(outputRoot, csFileName);
+            return Path.ChangeExtension(relativePath, ".cs");
+        }
+
+        /// <summary>
+        /// Inverse of <see cref="SpyAssetToGeneratedRelative"/> for scripts
+        /// under Assets/: Scripts/Core/greeting.cs → Assets/Scripts/Core/greeting.spy.
+        /// </summary>
+        internal static string GeneratedRelativeToSpyAsset(string generatedRelativePath)
+        {
+            return AssetsPrefix + Path.ChangeExtension(generatedRelativePath.Replace('\\', '/'), ".spy");
+        }
+
+        /// <summary>
+        /// The .spy asset a file in sharpyc's --emit-cs-to folder came from.
+        /// sharpyc mirrors each source's path relative to the .spyproj's folder
+        /// (Library/Sharpy), dropping the leading "../" segments, so
+        /// Assets/Scripts/Core/greeting.spy is staged as Assets/Scripts/Core/greeting.cs.
+        /// </summary>
+        internal static string StagedToSpyAsset(string stagedRelativePath)
+        {
+            return Path.ChangeExtension(stagedRelativePath.Replace('\\', '/'), ".spy");
         }
 
         public static void CleanEmptyDirectories()

@@ -120,7 +120,7 @@ namespace Sharpy.Unity.Editor
 
         private const string NamespaceWarningSessionKey = "Sharpy.NamespaceCollisionWarned";
 
-        private static void WarnOnNamespaceCollision(string rootNamespace)
+        internal static void WarnOnNamespaceCollision(string rootNamespace)
         {
             if (!SharpySettings.NamespaceCollidesWithSharpy(rootNamespace)
                 || SessionState.GetBool(NamespaceWarningSessionKey, false))
@@ -199,11 +199,21 @@ namespace Sharpy.Unity.Editor
             };
         }
 
-        public static CompileResult CompileProject(string spyprojPath, string outputDir)
+        /// <summary>
+        /// Runs <c>sharpyc project</c>. Diagnostics are parsed on every exit:
+        /// warnings arrive on stdout even when the build succeeds. Paths under
+        /// <paramref name="projectRoot"/> become project-relative, so pass the
+        /// spyproj path spelled from that same root (sharpyc prints paths the
+        /// way it was given them).
+        /// </summary>
+        public static CompileResult CompileProject(string spyprojPath, string outputDir, string projectRoot)
         {
             var settings = SharpySettings.instance;
             var args = $"project \"{spyprojPath}\" --emit-cs-to \"{outputDir}\"";
-            return RunCompiler(args, settings.CompilerTimeoutSeconds);
+            var result = RunCompiler(args, settings.CompilerTimeoutSeconds);
+            result.Diagnostics = SharpyDiagnosticParser.ParseCompilerOutput(
+                result.Stdout, result.Stderr, projectRoot, !result.Success);
+            return result;
         }
 
         public static CompileResult GetDiagnostics(string spyPath)
@@ -249,8 +259,13 @@ namespace Sharpy.Unity.Editor
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8,
                     CreateNoWindow = true
                 };
+
+                // sharpyc colours its output when stdout looks like a terminal.
+                startInfo.EnvironmentVariables["NO_COLOR"] = "1";
 
                 using var process = Process.Start(startInfo);
 
