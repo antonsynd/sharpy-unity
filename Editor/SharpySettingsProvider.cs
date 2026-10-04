@@ -101,9 +101,13 @@ namespace Sharpy.Unity.Editor
                 serializedSettings.FindProperty("autoCompileOnSave"),
                 new GUIContent("Auto-compile on Save"));
 
-            EditorGUILayout.PropertyField(
+            // Applied on Enter or focus loss, so a half-typed path never
+            // becomes the folder Sharpy writes to.
+            EditorGUILayout.DelayedTextField(
                 serializedSettings.FindProperty("generatedOutputPath"),
-                new GUIContent("Generated Output Path"));
+                new GUIContent(
+                    "Generated Output Path",
+                    "A folder of its own inside Assets/. Sharpy replaces every .cs in it; on a change, the old folder's generated scripts are removed."));
 
             EditorGUILayout.PropertyField(
                 serializedSettings.FindProperty("sourceMappedErrors"),

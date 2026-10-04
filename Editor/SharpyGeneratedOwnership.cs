@@ -129,6 +129,41 @@ namespace Sharpy.Unity.Editor
             return null;
         }
 
+        /// <summary>
+        /// Empties a generated folder that is no longer the configured one: its
+        /// generated scripts go (otherwise they compile next to the new
+        /// folder's copies, CS0101), as do empty folders, and the folder itself
+        /// when nothing but the marker is left. Does nothing to a folder that
+        /// is not marked. Returns whether anything was deleted.
+        /// </summary>
+        internal static bool Retire(string dir)
+        {
+            if (!Directory.Exists(dir) || !IsOwned(dir))
+            {
+                return false;
+            }
+
+            bool changed = SharpyGeneratedSync.Sync(dir, new SharpyGeneratedFile[0]).Changed;
+            string[] left = Directory.GetFileSystemEntries(dir);
+
+            if (left.Length == 1 && Path.GetFileName(left[0]) == MarkerFileName)
+            {
+                File.Delete(left[0]);
+                Directory.Delete(dir);
+
+                string folderMeta = dir.TrimEnd('/', '\\') + ".meta";
+
+                if (File.Exists(folderMeta))
+                {
+                    File.Delete(folderMeta);
+                }
+
+                changed = true;
+            }
+
+            return changed;
+        }
+
         /// <summary>Whether <paramref name="dir"/> carries the marker.</summary>
         internal static bool IsOwned(string dir)
         {

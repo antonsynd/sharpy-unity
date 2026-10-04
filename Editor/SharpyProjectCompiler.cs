@@ -24,6 +24,9 @@ namespace Sharpy.Unity.Editor
         internal const string StagingFolderName = "emit";
         internal const string FingerprintFileName = "fingerprint";
 
+        // The generated folder of the last successful sync.
+        internal const string OutputPathFileName = "output-path";
+
         // Relative to the .spyproj's folder.
         internal const string SourceGlob = "../../Assets/**/*.spy";
         internal const string SourceRoot = "../../Assets";
@@ -203,11 +206,24 @@ namespace Sharpy.Unity.Editor
                 });
             }
 
+            string outputPathFile = root + "/" + LibraryFolder + "/" + OutputPathFileName;
+            string previousFolder = File.Exists(outputPathFile) ? File.ReadAllText(outputPathFile).Trim() : null;
+            bool retired = false;
+
+            // The same Refresh that imports the new folder's scripts removes the
+            // old folder's, so no compile sees both.
+            if (IsOutputFolderChange(previousFolder, generatedFolder)
+                && SharpyGeneratedOwnership.CheckPath(root, previousFolder, spyAssets) == null)
+            {
+                retired = SharpyGeneratedOwnership.Retire(SharpyGeneratedOwnership.FullPath(root, previousFolder));
+            }
+
             SharpySyncResult sync = SharpyGeneratedSync.Sync(generatedDir, files);
 
             // Only after a successful sync: a failed compile keeps the old
             // fingerprint (or none), so the next check tries again.
             Directory.CreateDirectory(root + "/" + LibraryFolder);
+            File.WriteAllText(outputPathFile, generatedFolder + "\n", Utf8NoBom);
             File.WriteAllText(
                 fingerprintPath,
                 SharpyFingerprint.Format(fingerprint, files.ConvertAll(file => file.RelativePath)),
@@ -221,7 +237,7 @@ namespace Sharpy.Unity.Editor
                 Debug.LogWarning(warning);
             }
 
-            if (sync.Changed)
+            if (sync.Changed || retired)
             {
                 AssetDatabase.Refresh();
             }
@@ -379,6 +395,18 @@ namespace Sharpy.Unity.Editor
             }
 
             return warnings;
+        }
+
+        /// <summary>
+        /// Whether the generated folder moved since the last successful sync,
+        /// so the old one must be emptied. Folders compare ignoring case, as
+        /// Unity's asset paths do.
+        /// </summary>
+        internal static bool IsOutputFolderChange(string previousFolder, string currentFolder)
+        {
+            string previous = NormalizeFolder(previousFolder);
+            return previous.Length > 0
+                && !string.Equals(previous, NormalizeFolder(currentFolder), StringComparison.OrdinalIgnoreCase);
         }
 
         internal static string NormalizeFolder(string folder)

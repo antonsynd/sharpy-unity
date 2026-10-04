@@ -156,5 +156,41 @@ namespace Sharpy.Unity.Editor.Tests
             Assert.IsNotNull(SharpyGeneratedOwnership.Claim(dir));
             Assert.AreEqual("*\n", File.ReadAllText(Path.Combine(dir, ".gitignore")));
         }
+
+        [Test]
+        public void Retire_MarkedFolderOfGeneratedScripts_RemovedWithItsMeta()
+        {
+            string dir = Path.GetDirectoryName(Put("Assets/Gen1/.gitignore", SharpyGeneratedOwnership.MarkerText));
+            Put("Assets/Gen1.meta", "folderAsset: yes");
+            Put("Assets/Gen1/Scripts/Core/greeting.cs", GeneratedCs);
+            Put("Assets/Gen1/Scripts/Core/greeting.cs.meta", "guid: 0123456789abcdef0123456789abcdef");
+
+            Assert.IsTrue(SharpyGeneratedOwnership.Retire(dir));
+            Assert.IsFalse(Directory.Exists(dir));
+            Assert.IsFalse(File.Exists(dir + ".meta"));
+        }
+
+        [Test]
+        public void Retire_MarkedFolderWithOtherFiles_KeepsThemAndTheMarker()
+        {
+            string dir = Path.GetDirectoryName(Put("Assets/Gen1/.gitignore", SharpyGeneratedOwnership.MarkerText));
+            string script = Put("Assets/Gen1/Scripts/greeting.cs", GeneratedCs);
+            string notes = Put("Assets/Gen1/notes.txt", "mine");
+
+            SharpyGeneratedOwnership.Retire(dir);
+
+            Assert.IsFalse(File.Exists(script));
+            Assert.IsTrue(File.Exists(notes));
+            Assert.IsTrue(SharpyGeneratedOwnership.IsOwned(dir));
+        }
+
+        [Test]
+        public void Retire_UnmarkedFolder_Untouched()
+        {
+            string script = Put("Assets/Plugins/Hand.cs", "class Hand {}");
+
+            Assert.IsFalse(SharpyGeneratedOwnership.Retire(Path.GetDirectoryName(script)));
+            Assert.IsTrue(File.Exists(script));
+        }
     }
 }

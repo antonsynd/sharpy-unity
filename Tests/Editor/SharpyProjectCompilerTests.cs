@@ -151,5 +151,15 @@ namespace Sharpy.Unity.Editor.Tests
             Assert.IsNull(SharpyProjectCompiler.FailureHint(
                 1, "", "Build FAILED.\n\nerror[SPY0222]: Type 'int32' does not support operator '+'\n"));
         }
+
+        [TestCase("Assets/Gen1", "Assets/Gen2", true)]
+        [TestCase("Assets/Gen1", "Assets/Gen1/", false)]
+        [TestCase("Assets/Gen1", "assets/gen1", false)]
+        [TestCase(null, "Assets/Gen2", false)]
+        [TestCase("", "Assets/Gen2", false)]
+        public void IsOutputFolderChange(string previous, string current, bool expected)
+        {
+            Assert.AreEqual(expected, SharpyProjectCompiler.IsOutputFolderChange(previous, current));
+        }
     }
 }
